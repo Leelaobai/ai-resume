@@ -1,0 +1,17 @@
+version: '3.8'                                                                                                                                                                                                                                                             
+                                                   
+services:
+  postgres:
+    image: pgvector/pgvector:pg16
+    container_name: ai-resume-db
+    environment:
+      POSTGRES_DB: ai_resume
+      POSTGRES_USER: resume
+      POSTGRES_PASSWORD: resume123
+    ports:
+      - "5433:5432"
+    volumes:
+      - pgdata:/var/lib/postgresql/data
+
+volumes:
+  pgdata:

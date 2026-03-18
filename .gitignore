@@ -1,0 +1,28 @@
+# Environment
+.env
+.env.*
+
+# Go
+backend/tmp/
+*.exe
+
+# Frontend
+frontend/node_modules/
+frontend/dist/
+
+# Python
+scripts/__pycache__/
+*.pyc
+
+# OS
+.DS_Store
+Thumbs.db
+
+# IDE
+.idea/
+.vscode/
+*.swp
+*.swo
+
+# Docker volumes
+pgdata/
