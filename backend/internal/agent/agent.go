@@ -72,10 +72,13 @@ func (a *Agent) Run(ctx context.Context, sessionID uuid.UUID, userMsg string, ou
 
 		choice := resp.Choices[0]
 
-		// 如果LLM返回文本（没有工具调用），流程结束
-		if len(choice.Message.ToolCalls) == 0 {
+		// 如果LLM返回了文本内容，立即推送（不管有没有工具调用）
+		if choice.Message.Content != "" {
 			out <- StreamEvent{Type: "token", Data: TokenData{Content: choice.Message.Content}}
+		}
 
+		// 如果没有工具调用，流程结束
+		if len(choice.Message.ToolCalls) == 0 {
 			// 保存助手回复
 			a.sessionMgr.AddMessage(ctx, &session.Message{
 				SessionID: sessionID,

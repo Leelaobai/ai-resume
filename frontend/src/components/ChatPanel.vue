@@ -33,24 +33,37 @@
       >
         <div class="message-role">{{ msg.role === 'user' ? '你' : 'AI助手' }}</div>
         <div class="message-content">
-          <span v-if="msg.loading" class="loading-dot">思考中...</span>
+          <!-- 用户消息 -->
+          <template v-if="msg.role === 'user'">
+            <div class="markdown-body" v-html="renderMarkdown(msg.content)"></div>
+          </template>
+
+          <!-- 助手消息 -->
           <template v-else>
-            <!-- 工具调用卡片 -->
-            <div v-if="msg.toolCalls?.length" class="tool-calls">
-              <div
-                v-for="(tc, j) in msg.toolCalls"
-                :key="j"
-                class="tool-card"
-                :class="tc.status"
-              >
-                <span class="tool-icon">{{ toolIcon(tc.name) }}</span>
-                <span class="tool-label">{{ toolLabel(tc.name) }}</span>
-                <span v-if="tc.status === 'running'" class="tool-spinner"></span>
-                <span v-else class="tool-check">&#10003;</span>
-              </div>
-            </div>
-            <!-- 文本内容 -->
-            <div v-if="msg.content" class="markdown-body" v-html="renderMarkdown(msg.content)"></div>
+            <span v-if="msg.loading && (!msg.blocks || msg.blocks.length === 0)" class="loading-dot">思考中...</span>
+            <template v-if="msg.blocks?.length">
+              <template v-for="(block, j) in msg.blocks" :key="j">
+                <!-- 工具调用块 -->
+                <div v-if="block.type === 'tool_call'" class="tool-card" :class="block.toolStatus">
+                  <span class="tool-icon">{{ toolIcon(block.toolName!) }}</span>
+                  <span class="tool-label">{{ toolLabel(block.toolName!) }}</span>
+                  <span v-if="block.toolStatus === 'running'" class="tool-spinner"></span>
+                  <span v-else class="tool-check">&#10003;</span>
+                </div>
+                <!-- 简历更新块 -->
+                <div v-else-if="block.type === 'resume_update'" class="tool-card done">
+                  <span class="tool-icon">🔄</span>
+                  <span class="tool-label">简历已更新</span>
+                  <span class="tool-check">&#10003;</span>
+                </div>
+                <!-- 文本块 -->
+                <div v-else-if="block.type === 'text' && block.content" class="markdown-body" v-html="renderMarkdown(block.content)"></div>
+              </template>
+            </template>
+            <!-- 历史消息没有blocks，直接渲染content -->
+            <div v-else-if="msg.content && !msg.loading" class="markdown-body" v-html="renderMarkdown(msg.content)"></div>
+            <!-- blocks后面还在loading -->
+            <span v-if="msg.loading && msg.blocks && msg.blocks.length > 0" class="loading-dot">思考中...</span>
           </template>
         </div>
       </div>
@@ -111,6 +124,8 @@ const TOOL_META: Record<string, { icon: string; label: string }> = {
   update_resume_section: { icon: '📝', label: '更新简历' },
   get_current_resume: { icon: '📄', label: '读取简历' },
   match_jd: { icon: '🎯', label: 'JD匹配分析' },
+  get_current_template: { icon: '🎨', label: '读取模板' },
+  update_resume_style: { icon: '🎨', label: '更新样式' },
 }
 
 function toolIcon(name: string): string {
@@ -123,7 +138,14 @@ function toolLabel(name: string): string {
 
 // 消息更新时自动滚到底部
 watch(
-  () => store.messages.length + (store.messages.at(-1)?.content?.length || 0),
+  () => {
+    const lastMsg = store.messages.at(-1)
+    if (!lastMsg) return 0
+    // 监听 blocks 长度和最后一个 block 的内容变化
+    const blocksLen = lastMsg.blocks?.length || 0
+    const lastBlockContent = lastMsg.blocks?.at(-1)?.content?.length || 0
+    return store.messages.length + blocksLen + lastBlockContent + (lastMsg.content?.length || 0)
+  },
   async () => {
     await nextTick()
     if (messagesRef.value) {
@@ -266,13 +288,6 @@ watch(
 }
 
 /* 工具调用卡片 */
-.tool-calls {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 6px;
-  margin-bottom: 8px;
-}
-
 .tool-card {
   display: inline-flex;
   align-items: center;
@@ -283,6 +298,8 @@ watch(
   background: #f0f4ff;
   color: #4a6cf7;
   border: 1px solid #dbe4ff;
+  margin-bottom: 6px;
+  margin-right: 6px;
 }
 
 .tool-card.done {

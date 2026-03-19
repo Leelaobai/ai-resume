@@ -13,15 +13,17 @@ import {
   type Resume,
 } from '../api/client'
 
-export interface ToolCallInfo {
-  name: string
-  status: 'running' | 'done'
+export interface MessageBlock {
+  type: 'text' | 'tool_call' | 'resume_update'
+  content?: string
+  toolName?: string
+  toolStatus?: 'running' | 'done'
 }
 
 export interface ChatMessage {
   role: 'user' | 'assistant' | 'tool'
   content: string
-  toolCalls?: ToolCallInfo[]
+  blocks?: MessageBlock[]
   loading?: boolean
 }
 
@@ -102,30 +104,38 @@ export const useChatStore = defineStore('chat', () => {
     // 添加用户消息
     messages.value.push({ role: 'user', content })
 
-    // 添加助手占位消息
-    const assistantMsg: ChatMessage = { role: 'assistant', content: '', loading: true }
-    messages.value.push(assistantMsg)
+    // 添加助手占位消息（用blocks记录事件流）
+    messages.value.push({ role: 'assistant', content: '', blocks: [], loading: true })
+    const assistantMsg = messages.value[messages.value.length - 1]
 
     chatSSE(
       currentSessionId.value,
       content,
       // onEvent
       (event) => {
+        const blocks = assistantMsg.blocks!
+
         if (event.type === 'token') {
+          // 每轮 ReAct 的文本输出作为独立块
+          blocks.push({ type: 'text', content: event.data.content })
           assistantMsg.content += event.data.content
           assistantMsg.loading = false
         } else if (event.type === 'tool_call') {
           const toolName = event.data.name
           if (toolName === 'get_current_resume' || toolName === 'get_current_template') return // 静默
-          if (!assistantMsg.toolCalls) assistantMsg.toolCalls = []
-          assistantMsg.toolCalls.push({ name: toolName, status: 'running' })
+          blocks.push({ type: 'tool_call', toolName, toolStatus: 'running' })
           assistantMsg.loading = false
         } else if (event.type === 'tool_result') {
-          // 标记对应工具完成
           const toolName = event.data.name
-          const tc = assistantMsg.toolCalls?.findLast((t) => t.name === toolName && t.status === 'running')
-          if (tc) tc.status = 'done'
+          // 找到最后一个同名且running的tool_call block
+          for (let i = blocks.length - 1; i >= 0; i--) {
+            if (blocks[i].type === 'tool_call' && blocks[i].toolName === toolName && blocks[i].toolStatus === 'running') {
+              blocks[i].toolStatus = 'done'
+              break
+            }
+          }
         } else if (event.type === 'resume_update') {
+          blocks.push({ type: 'resume_update' })
           loadResume()
         }
       },
@@ -136,7 +146,8 @@ export const useChatStore = defineStore('chat', () => {
       },
       // onError
       (err) => {
-        assistantMsg.content += `\n❌ 错误: ${err}`
+        const blocks = assistantMsg.blocks!
+        blocks.push({ type: 'text', content: `\n❌ 错误: ${err}` })
         assistantMsg.loading = false
         sending.value = false
       }
