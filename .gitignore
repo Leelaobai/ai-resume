@@ -26,3 +26,6 @@ Thumbs.db
 
 # Docker volumes
 pgdata/
+
+# Docs
+docs/design.md
