@@ -62,6 +62,7 @@ export interface Resume {
   session_id: string
   data: ResumeData
   template_id: string
+  custom_template?: string
 }
 
 // 会话API
@@ -79,6 +80,9 @@ export const updateSession = (id: string, title: string) =>
 
 export const updateTemplate = (sessionId: string, templateId: string) =>
   api.patch(`/sessions/${sessionId}/resume/template`, { template_id: templateId })
+
+export const deleteCustomTemplate = (sessionId: string) =>
+  api.delete(`/sessions/${sessionId}/resume/custom-template`)
 
 // 消息API
 export const getMessages = (sessionId: string) =>

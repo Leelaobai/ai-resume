@@ -60,6 +60,8 @@ func main() {
 	toolRegistry.Register(tools.NewUpdateSectionTool(resumeStore))
 	toolRegistry.Register(tools.NewExtractInfoTool(memoryMgr))
 	toolRegistry.Register(tools.NewMatchJDTool(resumeStore))
+	toolRegistry.Register(tools.NewGetTemplateTool(resumeStore, resumeRenderer))
+	toolRegistry.Register(tools.NewUpdateStyleTool(resumeStore, resumeRenderer))
 
 	// Agent
 	ag := agent.NewAgent(llmClient, toolRegistry, sessionMgr, memoryMgr, summarizer)
