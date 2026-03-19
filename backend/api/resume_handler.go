@@ -2,11 +2,27 @@ package api
 
 import (
 	"fmt"
+	"log"
 	"net/http"
 
+	"github.com/Leelaobai/ai-resume/internal/resume"
 	"github.com/gin-gonic/gin"
 	"github.com/google/uuid"
 )
+
+// renderWithTemplate 根据 template_id 决定用自定义模板还是内置模板渲染
+func (s *Server) renderWithTemplate(r *resume.Resume) (string, error) {
+	if r.TemplateID == "custom" && r.CustomTemplate != nil {
+		html, err := s.resumeRenderer.RenderHTMLFromCustomTemplate(r.Data, *r.CustomTemplate)
+		if err != nil {
+			// 自定义模板渲染失败，回退到 classic
+			log.Printf("custom template render failed, falling back: %v", err)
+			return s.resumeRenderer.RenderHTML(r.Data, "classic")
+		}
+		return html, nil
+	}
+	return s.resumeRenderer.RenderHTML(r.Data, r.TemplateID)
+}
 
 func (s *Server) GetResume(c *gin.Context) {
 	id, err := uuid.Parse(c.Param("id"))
@@ -37,7 +53,7 @@ func (s *Server) GetResumeHTML(c *gin.Context) {
 		return
 	}
 
-	html, err := s.resumeRenderer.RenderHTML(r.Data, r.TemplateID)
+	html, err := s.renderWithTemplate(r)
 	if err != nil {
 		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
 		return
@@ -60,7 +76,7 @@ func (s *Server) ExportResumePDF(c *gin.Context) {
 		return
 	}
 
-	html, err := s.resumeRenderer.RenderHTML(r.Data, r.TemplateID)
+	html, err := s.renderWithTemplate(r)
 	if err != nil {
 		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
 		return
@@ -97,6 +113,28 @@ func (s *Server) UpdateTemplate(c *gin.Context) {
 	}
 
 	if err := s.resumeStore.UpdateTemplate(c.Request.Context(), id, req.TemplateID); err != nil {
+		c.JSON(500, gin.H{"error": err.Error()})
+		return
+	}
+
+	c.JSON(200, gin.H{"ok": true})
+}
+
+// DeleteCustomTemplate 清除自定义模板，回退到内置模板
+func (s *Server) DeleteCustomTemplate(c *gin.Context) {
+	id, err := uuid.Parse(c.Param("id"))
+	if err != nil {
+		c.JSON(400, gin.H{"error": "invalid id"})
+		return
+	}
+
+	if err := s.resumeStore.ClearCustomTemplate(c.Request.Context(), id); err != nil {
+		c.JSON(500, gin.H{"error": err.Error()})
+		return
+	}
+
+	// 回退到 classic
+	if err := s.resumeStore.UpdateTemplate(c.Request.Context(), id, "classic"); err != nil {
 		c.JSON(500, gin.H{"error": err.Error()})
 		return
 	}

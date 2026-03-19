@@ -54,6 +54,7 @@ func (s *Server) setupRoutes() {
 		api.GET("/sessions/:id/resume/pdf", s.ExportResumePDF)
 		api.POST("/sessions/:id/upload", s.UploadResume)
 		api.PATCH("/sessions/:id/resume/template", s.UpdateTemplate)
+		api.DELETE("/sessions/:id/resume/custom-template", s.DeleteCustomTemplate)
 	}
 }
 

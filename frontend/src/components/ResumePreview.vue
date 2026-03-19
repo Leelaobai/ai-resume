@@ -8,10 +8,19 @@
             v-for="t in templates"
             :key="t.id"
             class="btn-template"
-            :class="{ active: currentTemplate === t.id }"
+            :class="{ active: !isCustomTemplate && currentTemplate === t.id }"
             @click="switchTemplate(t.id)"
           >{{ t.label }}</button>
+          <button
+            v-if="hasCustomTemplate"
+            class="btn-template"
+            :class="{ active: isCustomTemplate }"
+            @click="switchTemplate('custom')"
+          >自定义</button>
         </div>
+        <button v-if="hasCustomTemplate" class="btn-reset" @click="resetTemplate">
+          重置样式
+        </button>
         <button class="btn-export" @click="exportPDF" :disabled="exporting">
           {{ exporting ? '导出中...' : '导出 PDF' }}
         </button>
@@ -46,7 +55,7 @@
 <script setup lang="ts">
 import { computed, ref, watch } from 'vue'
 import { useChatStore } from '../stores/chat'
-import { updateTemplate } from '../api/client'
+import { updateTemplate, deleteCustomTemplate } from '../api/client'
 
 const store = useChatStore()
 const exporting = ref(false)
@@ -60,6 +69,8 @@ const templates = [
 ]
 
 const currentTemplate = computed(() => store.resume?.template_id || 'classic')
+const hasCustomTemplate = computed(() => !!store.resume?.custom_template)
+const isCustomTemplate = computed(() => currentTemplate.value === 'custom' && hasCustomTemplate.value)
 
 const htmlUrl = computed(() => {
   if (!store.currentSessionId || !store.resume?.data) return ''
@@ -79,6 +90,16 @@ async function switchTemplate(templateId: string) {
     await store.loadResume()
   } catch (e: any) {
     alert('切换模板失败: ' + e.message)
+  }
+}
+
+async function resetTemplate() {
+  if (!store.currentSessionId) return
+  try {
+    await deleteCustomTemplate(store.currentSessionId)
+    await store.loadResume()
+  } catch (e: any) {
+    alert('重置样式失败: ' + e.message)
   }
 }
 
@@ -164,6 +185,22 @@ async function exportPDF() {
 .btn-template.active {
   background: #4a6cf7;
   color: white;
+}
+
+.btn-reset {
+  background: white;
+  color: #666;
+  border: 1px solid #ddd;
+  padding: 5px 12px;
+  border-radius: 6px;
+  cursor: pointer;
+  font-size: 12px;
+  transition: all 0.15s;
+}
+
+.btn-reset:hover {
+  background: #f5f5f5;
+  color: #333;
 }
 
 .btn-export {

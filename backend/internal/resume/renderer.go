@@ -66,6 +66,37 @@ func (r *Renderer) RenderHTML(data ResumeData, templateID string) (string, error
 	return buf.String(), nil
 }
 
+// RenderHTMLFromCustomTemplate 使用自定义模板字符串渲染简历
+func (r *Renderer) RenderHTMLFromCustomTemplate(data ResumeData, templateStr string) (string, error) {
+	funcMap := template.FuncMap{
+		"joinItems": func(items []string, sep string) string {
+			return strings.Join(items, sep)
+		},
+	}
+
+	tmpl, err := template.New("custom").Funcs(funcMap).Parse(templateStr)
+	if err != nil {
+		return "", fmt.Errorf("parse custom template: %w", err)
+	}
+
+	var buf bytes.Buffer
+	if err := tmpl.Execute(&buf, data); err != nil {
+		return "", fmt.Errorf("render custom template: %w", err)
+	}
+
+	return buf.String(), nil
+}
+
+// GetTemplateSource 读取内置模板的源码
+func (r *Renderer) GetTemplateSource(templateID string) (string, error) {
+	filename := templateID + ".html"
+	content, err := templateFS.ReadFile("templates/" + filename)
+	if err != nil {
+		return "", fmt.Errorf("read template source %s: %w", templateID, err)
+	}
+	return string(content), nil
+}
+
 // ListTemplates 列出可用模板
 func (r *Renderer) ListTemplates() []string {
 	names := make([]string, 0, len(r.templates))

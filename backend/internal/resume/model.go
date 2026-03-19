@@ -8,12 +8,13 @@ import (
 
 // Resume 完整简历结构
 type Resume struct {
-	ID         uuid.UUID  `json:"id"`
-	SessionID  uuid.UUID  `json:"session_id"`
-	Data       ResumeData `json:"data"`
-	TemplateID string     `json:"template_id"`
-	CreatedAt  time.Time  `json:"created_at"`
-	UpdatedAt  time.Time  `json:"updated_at"`
+	ID             uuid.UUID  `json:"id"`
+	SessionID      uuid.UUID  `json:"session_id"`
+	Data           ResumeData `json:"data"`
+	TemplateID     string     `json:"template_id"`
+	CustomTemplate *string    `json:"custom_template,omitempty"`
+	CreatedAt      time.Time  `json:"created_at"`
+	UpdatedAt      time.Time  `json:"updated_at"`
 }
 
 // ResumeData 简历内容（存为JSONB）
