@@ -138,7 +138,7 @@ func (a *Agent) Run(ctx context.Context, sessionID uuid.UUID, userMsg string, ou
 			})
 
 			// 如果是简历更新工具，通知前端刷新预览
-			if tc.Function.Name == "update_resume_section" {
+			if tc.Function.Name == "update_resume_section" || tc.Function.Name == "update_resume_style" {
 				out <- StreamEvent{Type: "resume_update", Data: nil}
 			}
 		}

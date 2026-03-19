@@ -116,7 +116,7 @@ export const useChatStore = defineStore('chat', () => {
           assistantMsg.loading = false
         } else if (event.type === 'tool_call') {
           const toolName = event.data.name
-          if (toolName === 'get_current_resume') return // 静默
+          if (toolName === 'get_current_resume' || toolName === 'get_current_template') return // 静默
           if (!assistantMsg.toolCalls) assistantMsg.toolCalls = []
           assistantMsg.toolCalls.push({ name: toolName, status: 'running' })
           assistantMsg.loading = false

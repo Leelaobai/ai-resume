@@ -23,18 +23,18 @@ func (s *Store) GetOrCreate(ctx context.Context, sessionID uuid.UUID) (*Resume, 
 	var dataBytes []byte
 
 	err := s.pool.QueryRow(ctx,
-		`SELECT id, session_id, data, template_id, created_at, updated_at                                                                                                                                                                                            
+		`SELECT id, session_id, data, template_id, custom_template, created_at, updated_at
 			 FROM resumes WHERE session_id = $1`, sessionID,
-	).Scan(&r.ID, &r.SessionID, &dataBytes, &r.TemplateID, &r.CreatedAt, &r.UpdatedAt)
+	).Scan(&r.ID, &r.SessionID, &dataBytes, &r.TemplateID, &r.CustomTemplate, &r.CreatedAt, &r.UpdatedAt)
 
 	if err != nil {
 		// 不存在，创建空简历
 		dataBytes, _ = json.Marshal(ResumeData{})
 		err = s.pool.QueryRow(ctx,
 			`INSERT INTO resumes (session_id, data) VALUES ($1, $2)
-					 RETURNING id, session_id, data, template_id, created_at, updated_at`,
+					 RETURNING id, session_id, data, template_id, custom_template, created_at, updated_at`,
 			sessionID, dataBytes,
-		).Scan(&r.ID, &r.SessionID, &dataBytes, &r.TemplateID, &r.CreatedAt, &r.UpdatedAt)
+		).Scan(&r.ID, &r.SessionID, &dataBytes, &r.TemplateID, &r.CustomTemplate, &r.CreatedAt, &r.UpdatedAt)
 		if err != nil {
 			return nil, fmt.Errorf("create resume: %w", err)
 		}
@@ -71,6 +71,30 @@ func (s *Store) UpdateTemplate(ctx context.Context, sessionID uuid.UUID, templat
 	)
 	if err != nil {
 		return fmt.Errorf("update template: %w", err)
+	}
+	return nil
+}
+
+// UpdateCustomTemplate 保存自定义模板，同时将 template_id 设为 "custom"
+func (s *Store) UpdateCustomTemplate(ctx context.Context, sessionID uuid.UUID, tmpl string) error {
+	_, err := s.pool.Exec(ctx,
+		`UPDATE resumes SET custom_template = $1, template_id = 'custom', updated_at = NOW() WHERE session_id = $2`,
+		tmpl, sessionID,
+	)
+	if err != nil {
+		return fmt.Errorf("update custom template: %w", err)
+	}
+	return nil
+}
+
+// ClearCustomTemplate 清除自定义模板，恢复内置模板
+func (s *Store) ClearCustomTemplate(ctx context.Context, sessionID uuid.UUID) error {
+	_, err := s.pool.Exec(ctx,
+		`UPDATE resumes SET custom_template = NULL, updated_at = NOW() WHERE session_id = $1`,
+		sessionID,
+	)
+	if err != nil {
+		return fmt.Errorf("clear custom template: %w", err)
 	}
 	return nil
 }
