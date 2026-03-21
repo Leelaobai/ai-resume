@@ -5,6 +5,7 @@ type ChatRequest struct {
 	Model          string          `json:"model"`
 	Messages       []Message       `json:"messages"`
 	Tools          []Tool          `json:"tools,omitempty"`
+	ToolChoice     interface{}     `json:"tool_choice,omitempty"`
 	Stream         bool            `json:"stream"`
 	ResponseFormat *ResponseFormat `json:"response_format,omitempty"`
 }

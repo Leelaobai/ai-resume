@@ -16,10 +16,10 @@ type Client struct {
 	httpClient *http.Client
 }
 
-func NewClient(apiKey, model string) *Client {
+func NewClient(baseURL, apiKey, model string) *Client {
 	return &Client{
 		apiKey:     apiKey,
-		baseURL:    "https://openrouter.ai/api/v1",
+		baseURL:    baseURL,
 		model:      model,
 		httpClient: &http.Client{},
 	}

@@ -12,8 +12,12 @@ type Config struct {
 	DBUser       string
 	DBPassword   string
 	DBName       string
-	LLMApiKey    string
-	LLMModel     string
+	LLMBaseURL       string
+	LLMApiKey        string
+	LLMModel         string
+	LocalLLMBaseURL  string
+	LocalLLMModel    string
+	LocalLLMApiKey   string
 	ServerPort   string
 	ReActMaxLoop int // ReAct循环最大轮数，默认10
 	// 摘要配置
@@ -28,8 +32,12 @@ func Load() *Config {
 		DBUser:             getEnv("DB_USER", "resume"),
 		DBPassword:         getEnv("DB_PASSWORD", "resume123"),
 		DBName:             getEnv("DB_NAME", "ai_resume"),
+		LLMBaseURL:         getEnv("LLM_BASE_URL", "https://openrouter.ai/api/v1"),
 		LLMApiKey:          getEnv("LLM_API_KEY", ""),
 		LLMModel:           getEnv("LLM_MODEL", "anthropic/claude-sonnet-4.6"),
+		LocalLLMBaseURL:    getEnv("LOCAL_LLM_BASE_URL", "http://localhost:8000/v1"),
+		LocalLLMModel:      getEnv("LOCAL_LLM_MODEL", ""),
+		LocalLLMApiKey:     getEnv("LOCAL_LLM_API_KEY", "no-key"),
 		ServerPort:         getEnv("SERVER_PORT", "8090"),
 		ReActMaxLoop:       getEnvInt("REACT_MAX_LOOP", 10),
 		SummarizeThreshold: getEnvInt("SUMMARIZE_THRESHOLD", 200000),

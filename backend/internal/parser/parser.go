@@ -4,9 +4,11 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
+	"log"
 	"os"
 	"os/exec"
 	"path/filepath"
+	"time"
 
 	"github.com/Leelaobai/ai-resume/internal/llm"
 	"github.com/Leelaobai/ai-resume/internal/resume"
@@ -18,9 +20,30 @@ type Parser struct {
 }
 
 func NewParser(llmClient *llm.Client) *Parser {
-	// 找到scripts目录
-	scriptPath := filepath.Join(".", "..", "scripts", "parse_resume.py")
+	scriptPath := findScriptPath()
 	return &Parser{llmClient: llmClient, scriptPath: scriptPath}
+}
+
+// findScriptPath 从当前工作目录向上查找 go.mod，定位 backend 根目录，
+// 然后拼出 ../scripts/parse_resume.py（scripts 在 backend 的上一级）。
+// 找不到时回退到相对路径。
+func findScriptPath() string {
+	dir, err := os.Getwd()
+	if err != nil {
+		return filepath.Join("..", "scripts", "parse_resume.py")
+	}
+	for {
+		if _, err := os.Stat(filepath.Join(dir, "go.mod")); err == nil {
+			// dir 就是 backend/，scripts 在上一级
+			return filepath.Join(dir, "..", "scripts", "parse_resume.py")
+		}
+		parent := filepath.Dir(dir)
+		if parent == dir {
+			break
+		}
+		dir = parent
+	}
+	return filepath.Join("..", "scripts", "parse_resume.py")
 }
 
 // ParseFile 解析上传的简历文件，返回结构化数据
@@ -56,65 +79,113 @@ func (p *Parser) extractText(filePath string) (string, error) {
 	return string(output), nil
 }
 
-func (p *Parser) structurize(ctx context.Context, text string) (*resume.ResumeData, error) {
-	prompt := fmt.Sprintf(`从以下简历文本中提取结构化信息。只输出纯JSON，不要任何解释、注释或markdown标记。
-	重要：JSON字符串值中绝对不能包含双引号，用「」替代。例如：荣获「最佳新人」称号。
-
-	{
-	  "basic_info": {"name":"","title":"","email":"","phone":"","location":"","website":"","github":""},
-	  "summary": "",
-	  "experience": [{"company":"","title":"","start_date":"","end_date":"","description":[""]}],
-	  "education": [{"school":"","degree":"","major":"","start_date":"","end_date":""}],
-	  "skills": [{"category":"","items":[""]}],
-	  "projects": [{"name":"","description":"","highlights":[""],"tech_stack":[""]}]
-	}
-  
-	简历文本:
-	%s
-  
-	只输出JSON，不要其他任何文字。`, text)
-
-	resp, err := p.llmClient.Chat(ctx, llm.ChatRequest{
-		Messages: []llm.Message{
-			{Role: "user", Content: prompt},
+// resumeDataSchema 是 save_parsed_resume 工具的参数 JSON Schema
+var resumeDataSchema = map[string]interface{}{
+	"type": "object",
+	"properties": map[string]interface{}{
+		"basic_info": map[string]interface{}{
+			"type": "object",
+			"properties": map[string]interface{}{
+				"name":     map[string]string{"type": "string"},
+				"title":    map[string]string{"type": "string"},
+				"email":    map[string]string{"type": "string"},
+				"phone":    map[string]string{"type": "string"},
+				"location": map[string]string{"type": "string"},
+				"website":  map[string]string{"type": "string"},
+				"github":   map[string]string{"type": "string"},
+			},
+			"required": []string{"name", "title"},
 		},
-		ResponseFormat: &llm.ResponseFormat{Type: "json_object"},
-	})
+		"summary": map[string]string{"type": "string"},
+		"experience": map[string]interface{}{
+			"type": "array",
+			"items": map[string]interface{}{
+				"type": "object",
+				"properties": map[string]interface{}{
+					"company":     map[string]string{"type": "string"},
+					"title":       map[string]string{"type": "string"},
+					"start_date":  map[string]string{"type": "string"},
+					"end_date":    map[string]string{"type": "string"},
+					"description": map[string]interface{}{"type": "array", "items": map[string]string{"type": "string"}},
+				},
+			},
+		},
+		"education": map[string]interface{}{
+			"type": "array",
+			"items": map[string]interface{}{
+				"type": "object",
+				"properties": map[string]interface{}{
+					"school":     map[string]string{"type": "string"},
+					"degree":     map[string]string{"type": "string"},
+					"major":      map[string]string{"type": "string"},
+					"start_date": map[string]string{"type": "string"},
+					"end_date":   map[string]string{"type": "string"},
+				},
+			},
+		},
+		"skills": map[string]interface{}{
+			"type": "array",
+			"items": map[string]interface{}{
+				"type": "object",
+				"properties": map[string]interface{}{
+					"category": map[string]string{"type": "string"},
+					"items":    map[string]interface{}{"type": "array", "items": map[string]string{"type": "string"}},
+				},
+			},
+		},
+		"projects": map[string]interface{}{
+			"type": "array",
+			"items": map[string]interface{}{
+				"type": "object",
+				"properties": map[string]interface{}{
+					"name":        map[string]string{"type": "string"},
+					"role":        map[string]string{"type": "string"},
+					"description": map[string]string{"type": "string"},
+					"highlights":  map[string]interface{}{"type": "array", "items": map[string]string{"type": "string"}},
+					"tech_stack":  map[string]interface{}{"type": "array", "items": map[string]string{"type": "string"}},
+				},
+			},
+		},
+		"certifications": map[string]interface{}{"type": "array", "items": map[string]string{"type": "string"}},
+		"languages":      map[string]interface{}{"type": "array", "items": map[string]string{"type": "string"}},
+	},
+	"required": []string{"basic_info", "summary", "experience", "education", "skills", "projects"},
+}
+
+func (p *Parser) structurize(ctx context.Context, text string) (*resume.ResumeData, error) {
+	tools := []llm.Tool{{
+		Type: "function",
+		Function: llm.ToolFunction{
+			Name:        "save_parsed_resume",
+			Description: "保存解析出的简历结构化数据",
+			Parameters:  resumeDataSchema,
+		},
+	}}
+
+	req := llm.ChatRequest{
+		Messages: []llm.Message{
+			{Role: "system", Content: "你是简历解析助手。从用户提供的简历文本中提取结构化信息，调用 save_parsed_resume 工具保存。"},
+			{Role: "user", Content: text},
+		},
+		Tools:      tools,
+		ToolChoice: "auto",
+	}
+
+	start := time.Now()
+	resp, err := p.llmClient.Chat(ctx, req)
+	log.Printf("[Parser] LLM structurize took %v", time.Since(start))
 	if err != nil {
 		return nil, err
 	}
 
-	content := resp.Choices[0].Message.Content
-
-	// 提取JSON：找第一个{和最后一个}
-	start := -1
-	end := -1
-	for i := 0; i < len(content); i++ {
-		if content[i] == '{' {
-			start = i
-			break
-		}
-	}
-	for i := len(content) - 1; i >= 0; i-- {
-		if content[i] == '}' {
-			end = i + 1
-			break
-		}
+	if len(resp.Choices) == 0 || len(resp.Choices[0].Message.ToolCalls) == 0 {
+		return nil, fmt.Errorf("模型未调用工具")
 	}
 
-	if start == -1 || end == -1 || start >= end {
-		return nil, fmt.Errorf("no JSON found in LLM response")
-	}
-
-	jsonStr := content[start:end]
-
+	args := resp.Choices[0].Message.ToolCalls[0].Function.Arguments
 	var data resume.ResumeData
-	if err := json.Unmarshal([]byte(jsonStr), &data); err != nil {
-		// 尝试修复后再解析
-		fixed := fixJSON(jsonStr)
-		if err := json.Unmarshal([]byte(fixed), &data); err != nil {
-			return nil, fmt.Errorf("parse LLM response: %w", err)
-		}
+	if err := json.Unmarshal([]byte(args), &data); err != nil {
+		return nil, fmt.Errorf("parse tool call args: %w", err)
 	}
 	return &data, nil
 }
@@ -129,53 +200,3 @@ func SaveUploadedFile(data []byte, filename string) (string, error) {
 	return filePath, nil
 }
 
-// fixJSON 修复JSON中未转义的双引号
-// 处理类似 荣获部门"最佳新人"称号 这种情况
-func fixJSON(raw string) string {
-	result := make([]byte, 0, len(raw))
-	inString := false
-	i := 0
-
-	for i < len(raw) {
-		ch := raw[i]
-
-		if ch == '\\' && inString && i+1 < len(raw) {
-			// 转义字符，原样保留
-			result = append(result, ch, raw[i+1])
-			i += 2
-			continue
-		}
-
-		if ch == '"' {
-			if !inString {
-				// 进入字符串
-				inString = true
-				result = append(result, ch)
-			} else {
-				// 判断这个引号是字符串结束符还是值内的引号
-				// 看后面的字符：如果是 , ] } : 或空白则是结束符
-				next := skipWhitespace(raw, i+1)
-				if next >= len(raw) || raw[next] == ',' || raw[next] == ']' || raw[next] == '}' || raw[next] == ':' {
-					inString = false
-					result = append(result, ch)
-				} else {
-					// 值内的引号，转义它
-					result = append(result, '\\', '"')
-				}
-			}
-		} else {
-			result = append(result, ch)
-		}
-
-		i++
-	}
-
-	return string(result)
-}
-
-func skipWhitespace(s string, i int) int {
-	for i < len(s) && (s[i] == ' ' || s[i] == '\t' || s[i] == '\n' || s[i] == '\r') {
-		i++
-	}
-	return i
-}

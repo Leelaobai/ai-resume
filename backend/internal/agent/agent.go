@@ -8,26 +8,29 @@ import (
 
 	"github.com/Leelaobai/ai-resume/internal/llm"
 	"github.com/Leelaobai/ai-resume/internal/memory"
+	"github.com/Leelaobai/ai-resume/internal/resume"
 	"github.com/Leelaobai/ai-resume/internal/session"
 	"github.com/Leelaobai/ai-resume/internal/tools"
 	"github.com/google/uuid"
 )
 
 type Agent struct {
-	llmClient  *llm.Client
-	tools      *tools.Registry
-	sessionMgr *session.Manager
-	memoryMgr  *memory.Manager
-	summarizer *memory.Summarizer
+	llmClient   *llm.Client
+	tools       *tools.Registry
+	sessionMgr  *session.Manager
+	memoryMgr   *memory.Manager
+	resumeStore *resume.Store
+	summarizer  *memory.Summarizer
 }
 
-func NewAgent(llmClient *llm.Client, toolRegistry *tools.Registry, sessionMgr *session.Manager, memoryMgr *memory.Manager, summarizer *memory.Summarizer) *Agent {
+func NewAgent(llmClient *llm.Client, toolRegistry *tools.Registry, sessionMgr *session.Manager, memoryMgr *memory.Manager, resumeStore *resume.Store, summarizer *memory.Summarizer) *Agent {
 	return &Agent{
-		llmClient:  llmClient,
-		tools:      toolRegistry,
-		sessionMgr: sessionMgr,
-		memoryMgr:  memoryMgr,
-		summarizer: summarizer,
+		llmClient:   llmClient,
+		tools:       toolRegistry,
+		sessionMgr:  sessionMgr,
+		memoryMgr:   memoryMgr,
+		resumeStore: resumeStore,
+		summarizer:  summarizer,
 	}
 }
 
@@ -86,12 +89,10 @@ func (a *Agent) Run(ctx context.Context, sessionID uuid.UUID, userMsg string, ou
 				Content:   choice.Message.Content,
 			})
 
-			// 异步检查是否需要摘要
-			go func() {
-				if err := a.summarizer.MaybeSummarize(context.Background(), sessionID); err != nil {
-					log.Printf("summarize error: %v", err)
-				}
-			}()
+			// 检查是否需要摘要（内部异步执行，有 pending 机制防重复）
+			if err := a.summarizer.MaybeSummarize(ctx, sessionID); err != nil {
+				log.Printf("summarize error: %v", err)
+			}
 
 			return
 		}
@@ -159,6 +160,13 @@ func (a *Agent) buildMessages(ctx context.Context, sessionID uuid.UUID) ([]llm.M
 	longTermCtx, err := a.memoryMgr.GetLongTermContext(ctx)
 	if err == nil && longTermCtx != "" {
 		systemContent += "\n\n## 已知的用户信息（长期记忆）\n" + longTermCtx
+	}
+
+	// 预加载当前简历数据，省去每次 get_current_resume 工具调用
+	if r, err := a.resumeStore.GetOrCreate(ctx, sessionID); err == nil {
+		if data, err := json.Marshal(r.Data); err == nil {
+			systemContent += "\n\n## 当前简历数据\n" + string(data)
+		}
 	}
 
 	messages := []llm.Message{

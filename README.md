@@ -44,7 +44,7 @@ User Message
 | Backend | Go + Gin |
 | Frontend | Vue 3 + TypeScript + Vite |
 | Database | PostgreSQL + pgvector |
-| LLM | OpenRouter API (Claude Sonnet) |
+| LLM | OpenRouter API (Claude Sonnet) + Local model via oMLX (optional) |
 | PDF Export | chromedp (headless Chrome) |
 | File Parsing | Python (pdfplumber + python-docx) |
 
@@ -79,10 +79,13 @@ Session ID is passed via `context.Context`, making tools stateless and shareable
 
 | Tool | Purpose |
 |------|---------|
-| `get_current_resume` | Read current resume state |
 | `update_resume_section` | Patch any resume section (basic_info, experience, skills, etc.) |
 | `extract_user_info` | Extract structured facts from conversation into long-term memory |
 | `match_jd` | Compare resume against a job description, identify gaps |
+| `get_current_template` | Read current HTML template source |
+| `update_resume_style` | Update resume HTML template (CSS/layout) |
+
+> Resume data is pre-injected into the system prompt on every turn (from DB), eliminating the need for a `get_current_resume` tool call.
 
 ### 3. Session Management (`internal/session/`)
 
@@ -95,14 +98,19 @@ Two-layer memory architecture:
 - **Short-term**: Recent conversation messages loaded as LLM context
 - **Long-term**: Structured facts (category/key/value) extracted by the `extract_user_info` tool, injected into the system prompt
 
-**Conversation Summarizer**: When context tokens exceed a configurable threshold, older messages are compressed into a summary via LLM. Summaries are stored incrementally (each new summary merges with the previous one). Original messages are never deleted — summaries only affect what's sent to the LLM.
+**Conversation Summarizer**: When context tokens exceed a configurable threshold, older messages are compressed into a summary via LLM. Summaries are stored incrementally (each new summary merges with the previous one). Original messages are never deleted — summaries only affect what's sent to the LLM. If a local model is configured, the Summarizer runs on it (async, non-blocking) while Agent and Parser always use the remote model.
 
 ```
 Token count after last summary > threshold?
   ├─ No  → Use messages directly
-  └─ Yes → Summarize old messages
-           → INSERT new summary with last_message_id
-           → Next buildMessages: summary + messages after last_message_id
+  └─ Yes → TryAcquireSummary (atomic: check pending + create pending in one tx)
+           ├─ Pending exists & not timed out → Skip
+           ├─ Pending exists & timed out (3min) → Delete old, create new pending
+           └─ No pending → Create pending
+           → Async goroutine generates summary (3min timeout)
+           → On success: CompleteSummary (status → done)
+           → On failure: DeletePendingSummary (allows retry)
+           → Next buildMessages: summary (status=done) + messages after last_message_id
 ```
 
 ### 5. Resume Engine (`internal/resume/`)
@@ -150,7 +158,7 @@ sessions            -- Conversation sessions
 messages            -- Chat messages (user/assistant/tool)
 resumes             -- Resume data (JSONB), one per session
 memory_facts        -- Long-term memory (category/key/value)
-conversation_summaries -- Conversation summaries with last_message_id
+conversation_summaries -- Summaries with last_message_id + status (pending/done)
 ```
 
 ## Getting Started
@@ -217,10 +225,14 @@ Open `http://localhost:5173` in your browser.
 |----------|---------|-------------|
 | `LLM_API_KEY` | (required) | OpenRouter API key |
 | `LLM_MODEL` | `anthropic/claude-sonnet-4.6` | LLM model identifier |
+| `LOCAL_LLM_BASE_URL` | `http://localhost:8000/v1` | Local model API endpoint (oMLX) |
+| `LOCAL_LLM_MODEL` | (empty) | Local model name. If empty, all LLM calls use remote |
+| `LOCAL_LLM_API_KEY` | `no-key` | Local model API key |
 | `DB_PORT` | `5433` | PostgreSQL port |
 | `SERVER_PORT` | `8090` | Backend HTTP port |
 | `SUMMARIZE_THRESHOLD` | `200000` | Token count to trigger summarization |
 | `KEEP_RECENT_TOKENS` | `50000` | Tokens to keep after summarization |
+| `REACT_MAX_LOOP` | `10` | Max ReAct tool-call iterations per message |
 
 ## Project Structure
 

@@ -63,5 +63,6 @@ CREATE TABLE conversation_summaries (
     session_id      UUID NOT NULL REFERENCES sessions(id) ON DELETE CASCADE,
     summary         TEXT NOT NULL,
     last_message_id UUID REFERENCES messages(id),
+    status          TEXT NOT NULL DEFAULT 'done',
     created_at      TIMESTAMPTZ NOT NULL DEFAULT NOW()
 );

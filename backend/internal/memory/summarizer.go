@@ -5,12 +5,15 @@ import (
 	"fmt"
 	"log"
 	"strings"
+	"time"
 
 	"github.com/Leelaobai/ai-resume/config"
 	"github.com/Leelaobai/ai-resume/internal/llm"
 	"github.com/Leelaobai/ai-resume/internal/session"
 	"github.com/google/uuid"
 )
+
+const summarizeTimeout = 3 * time.Minute
 
 type Summarizer struct {
 	llmClient  *llm.Client
@@ -28,13 +31,13 @@ func NewSummarizer(llmClient *llm.Client, sessionMgr *session.Manager, store *St
 	}
 }
 
-// MaybeSummarize 检查是否需要摘要压缩，如果需要则执行
+// MaybeSummarize 检查是否需要摘要压缩，如果需要则异步执行
 func (s *Summarizer) MaybeSummarize(ctx context.Context, sessionID uuid.UUID) error {
-	// 1. 查最新摘要
+	// 1. 查最新已完成的摘要
 	existingSummary, lastMsgID, err := s.store.GetLatestSummary(ctx, sessionID)
 	hasSummary := err == nil && existingSummary != ""
 
-	// 2. 计算需要发给LLM的token数
+	// 2. 计算 token 数
 	var tokenCount int
 	if hasSummary {
 		tokenCount, err = s.sessionMgr.EstimateTokensAfter(ctx, sessionID, lastMsgID)
@@ -52,7 +55,7 @@ func (s *Summarizer) MaybeSummarize(ctx context.Context, sessionID uuid.UUID) er
 	log.Printf("Session %s: %d tokens after summary, threshold %d, summarizing...",
 		sessionID, tokenCount, s.config.SummarizeThreshold)
 
-	// 3. 取摘要之后的所有消息（或全部消息）
+	// 3. 取需要摘要的消息
 	var allMsgs []session.Message
 	if hasSummary {
 		allMsgs, err = s.sessionMgr.GetMessagesAfter(ctx, sessionID, lastMsgID)
@@ -66,7 +69,7 @@ func (s *Summarizer) MaybeSummarize(ctx context.Context, sessionID uuid.UUID) er
 		return nil
 	}
 
-	// 4. 计算保留多少条最近消息（从后往前累计token直到KeepRecentTokens）
+	// 4. 计算保留多少条最近消息
 	keepFrom := len(allMsgs)
 	keepTokens := 0
 	for i := len(allMsgs) - 1; i >= 0; i-- {
@@ -78,26 +81,45 @@ func (s *Summarizer) MaybeSummarize(ctx context.Context, sessionID uuid.UUID) er
 		keepFrom = i
 	}
 
-	// 需要被摘要的消息
 	toSummarize := allMsgs[:keepFrom]
 	if len(toSummarize) == 0 {
 		return nil
 	}
 
-	// 5. 生成摘要
-	summary, err := s.generateSummary(ctx, existingSummary, toSummarize)
-	if err != nil {
-		return fmt.Errorf("generate summary: %w", err)
-	}
-
-	// 6. 保存摘要，last_message_id 指向被摘要的最后一条消息
 	lastSummarizedMsg := toSummarize[len(toSummarize)-1]
-	if err := s.store.SaveSummary(ctx, sessionID, summary, lastSummarizedMsg.ID); err != nil {
-		return fmt.Errorf("save summary: %w", err)
+
+	// 5. 原子操作：检查 pending + 创建 pending（事务 + FOR UPDATE 防并发）
+	summaryID, skipped, err := s.store.TryAcquireSummary(ctx, sessionID, lastSummarizedMsg.ID, summarizeTimeout)
+	if err != nil {
+		return fmt.Errorf("acquire summary: %w", err)
+	}
+	if skipped {
+		log.Printf("Session %s: summary already in progress, skipping", sessionID)
+		return nil
 	}
 
-	log.Printf("Session %s: summarized %d messages, keeping %d",
-		sessionID, len(toSummarize), len(allMsgs)-keepFrom)
+	// 6. 异步生成摘要，带超时控制
+	go func() {
+		bgCtx, cancel := context.WithTimeout(context.Background(), summarizeTimeout)
+		defer cancel()
+
+		summary, err := s.generateSummary(bgCtx, existingSummary, toSummarize)
+		if err != nil {
+			log.Printf("Session %s: generate summary failed: %v", sessionID, err)
+			s.store.DeletePendingSummary(context.Background(), summaryID)
+			return
+		}
+
+		if err := s.store.CompleteSummary(bgCtx, summaryID, summary); err != nil {
+			log.Printf("Session %s: complete summary failed: %v", sessionID, err)
+			s.store.DeletePendingSummary(context.Background(), summaryID)
+			return
+		}
+
+		log.Printf("Session %s: summarized %d messages, keeping %d",
+			sessionID, len(toSummarize), len(allMsgs)-keepFrom)
+	}()
+
 	return nil
 }
 
@@ -113,12 +135,14 @@ func (s *Summarizer) generateSummary(ctx context.Context, existingSummary string
 	}
 	prompt += sb.String()
 
+	start := time.Now()
 	resp, err := s.llmClient.Chat(ctx, llm.ChatRequest{
 		Messages: []llm.Message{
 			{Role: "system", Content: "你是一个对话摘要助手，负责压缩对话历史。输出纯文本摘要，不要markdown格式。"},
 			{Role: "user", Content: prompt},
 		},
 	})
+	log.Printf("[Summarizer] LLM summarize took %v", time.Since(start))
 	if err != nil {
 		return "", err
 	}

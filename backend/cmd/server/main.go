@@ -4,6 +4,8 @@ import (
 	"context"
 	"log"
 	"os"
+	"path/filepath"
+	"runtime"
 
 	"github.com/Leelaobai/ai-resume/api"
 	"github.com/Leelaobai/ai-resume/config"
@@ -19,7 +21,14 @@ import (
 )
 
 func main() {
-	godotenv.Load()
+	// 从源码位置往上找到 backend/.env，不依赖工作目录
+	_, thisFile, _, _ := runtime.Caller(0)
+	envPath := filepath.Join(filepath.Dir(thisFile), "..", "..", ".env")
+	godotenv.Overload(envPath)
+	if wd, err := os.Getwd(); err == nil {
+		log.Printf("Working directory: %s", wd)
+	}
+	log.Printf("ENV raw: SUMMARIZE_THRESHOLD=%s", os.Getenv("SUMMARIZE_THRESHOLD"))
 	cfg := config.Load()
 
 	if cfg.LLMApiKey == "" {
@@ -50,13 +59,25 @@ func main() {
 	memoryStore := memory.NewStore(db.Pool)
 	memoryMgr := memory.NewManager(memoryStore, sessionMgr)
 
-	llmClient := llm.NewClient(cfg.LLMApiKey, cfg.LLMModel)
+	remoteClient := llm.NewClient(cfg.LLMBaseURL, cfg.LLMApiKey, cfg.LLMModel)
 
-	summarizer := memory.NewSummarizer(llmClient, sessionMgr, memoryStore, cfg)
+	// 如果配置了本地模型，只让 Summarizer 走本地（异步、简单文本压缩）
+	// Parser 和 Agent 始终走远程模型（工具调用更可靠）
+	var localClient *llm.Client
+	if cfg.LocalLLMModel != "" {
+		localClient = llm.NewClient(cfg.LocalLLMBaseURL, cfg.LocalLLMApiKey, cfg.LocalLLMModel)
+		log.Printf("Local LLM enabled for Summarizer: %s at %s", cfg.LocalLLMModel, cfg.LocalLLMBaseURL)
+	} else {
+		localClient = remoteClient
+	}
+
+	log.Printf("Config: SummarizeThreshold=%d, KeepRecentTokens=%d", cfg.SummarizeThreshold, cfg.KeepRecentTokens)
+	summarizer := memory.NewSummarizer(localClient, sessionMgr, memoryStore, cfg)
 
 	// 注册工具
 	toolRegistry := tools.NewRegistry()
-	toolRegistry.Register(tools.NewGetResumeTool(resumeStore))
+	// get_current_resume 不再注册：简历数据已预注入 system prompt，每轮从 DB 刷新
+	// toolRegistry.Register(tools.NewGetResumeTool(resumeStore))
 	toolRegistry.Register(tools.NewUpdateSectionTool(resumeStore))
 	toolRegistry.Register(tools.NewExtractInfoTool(memoryMgr))
 	toolRegistry.Register(tools.NewMatchJDTool(resumeStore))
@@ -64,9 +85,9 @@ func main() {
 	toolRegistry.Register(tools.NewUpdateStyleTool(resumeStore, resumeRenderer))
 
 	// Agent
-	ag := agent.NewAgent(llmClient, toolRegistry, sessionMgr, memoryMgr, summarizer)
+	ag := agent.NewAgent(remoteClient, toolRegistry, sessionMgr, memoryMgr, resumeStore, summarizer)
 
-	resumeParser := parser.NewParser(llmClient)
+	resumeParser := parser.NewParser(remoteClient)
 
 	// 启动HTTP服务
 	server := api.NewServer(ag, sessionMgr, resumeStore, resumeRenderer, resumeExporter, resumeParser)

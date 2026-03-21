@@ -23,6 +23,7 @@ Thumbs.db
 .vscode/
 *.swp
 *.swo
+__debug_bin*
 
 # Docker volumes
 pgdata/
