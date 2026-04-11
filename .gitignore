@@ -3,8 +3,12 @@
 .env.*
 
 # Go
-backend/tmp/
+services/resume-agent/tmp/
 *.exe
+
+# Tool working directories
+.claude/
+stitch_agent/
 
 # Frontend
 frontend/node_modules/

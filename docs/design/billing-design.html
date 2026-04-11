@@ -1,0 +1,579 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<title>计费模块 — 产品设计</title>
+<style>
+* { box-sizing: border-box; margin: 0; padding: 0; }
+body { font-family: -apple-system, 'PingFang SC', sans-serif; background: #f0f2f5; color: #1a1a2e; }
+
+h1 { text-align: center; padding: 32px 0 6px; font-size: 20px; color: #222; }
+.subtitle { text-align: center; color: #999; font-size: 12px; margin-bottom: 40px; }
+
+.section { max-width: 1160px; margin: 0 auto 56px; padding: 0 24px; }
+.section-title { font-size: 13px; font-weight: 700; color: #555; letter-spacing: .3px; margin-bottom: 18px; padding-left: 10px; border-left: 3px solid #6366f1; }
+
+.screen { background: #fff; border-radius: 12px; border: 1.5px solid #ddd; overflow: hidden; box-shadow: 0 2px 16px rgba(0,0,0,.07); }
+.bar { background: #1e1e2e; color: #666; font-size: 11px; padding: 8px 14px; display: flex; align-items: center; gap: 6px; }
+.dot { width: 9px; height: 9px; border-radius: 50%; display:inline-block; }
+.dot-r{background:#ff5f57}.dot-y{background:#febc2e}.dot-g{background:#28c840}
+.url { margin-left: 6px; background: #2d2d3e; padding: 2px 14px; border-radius: 4px; font-size: 11px; color: #777; }
+
+/* Navbar */
+.nav { display: flex; align-items: center; justify-content: space-between; padding: 11px 20px; border-bottom: 1px solid #f0f0f0; background: #fff; }
+.logo { font-weight: 800; font-size: 15px; color: #6366f1; }
+.nav-right { display: flex; align-items: center; gap: 12px; }
+
+/* Balance chip variants */
+.balance-chip { display: flex; align-items: center; gap: 5px; padding: 5px 12px; border-radius: 20px; font-size: 12px; font-weight: 700; cursor: pointer; border: 1.5px solid; }
+.balance-normal { background: #f0f0ff; color: #6366f1; border-color: #c7d2fe; }
+.balance-normal:hover { background: #e0e0ff; }
+.balance-warn { background: #fffbeb; color: #d97706; border-color: #fcd34d; }
+.balance-danger { background: #fef2f2; color: #dc2626; border-color: #fca5a5; }
+.balance-chip .gem { font-size: 13px; }
+
+.user-chip { display:flex; align-items:center; gap:8px; font-size:12px; color:#666; cursor:pointer; }
+.avatar { width: 26px; height: 26px; border-radius: 50%; background: #6366f1; color: #fff; display: flex; align-items: center; justify-content: center; font-size: 11px; font-weight: 700; }
+
+/* Low balance banner */
+.warn-banner { background: #fffbeb; border-bottom: 1px solid #fde68a; padding: 8px 20px; display: flex; align-items: center; justify-content: space-between; }
+.warn-banner-text { font-size: 11px; color: #92400e; display: flex; align-items: center; gap: 6px; }
+.warn-banner-btn { background: #f59e0b; color: #fff; border: none; border-radius: 5px; padding: 4px 12px; font-size: 11px; font-weight: 700; cursor: pointer; }
+.danger-banner { background: #fef2f2; border-bottom: 1px solid #fecaca; padding: 8px 20px; display: flex; align-items: center; justify-content: space-between; }
+.danger-banner-text { font-size: 11px; color: #991b1b; display: flex; align-items: center; gap: 6px; }
+.danger-banner-btn { background: #ef4444; color: #fff; border: none; border-radius: 5px; padding: 4px 12px; font-size: 11px; font-weight: 700; cursor: pointer; }
+
+/* Billing Page */
+.billing-layout { display: flex; gap: 0; }
+.billing-sidebar { width: 160px; flex-shrink: 0; border-right: 1px solid #eee; background: #fafafa; padding: 16px 0; }
+.side-item { padding: 8px 16px; font-size: 12px; color: #888; cursor: pointer; display: flex; align-items: center; gap: 8px; }
+.side-item:hover { background: #f0f0ff; color: #6366f1; }
+.side-item.active { background: #ededff; color: #6366f1; font-weight: 700; border-right: 2px solid #6366f1; }
+
+.billing-main { flex: 1; padding: 20px; overflow: hidden; }
+.billing-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 14px; margin-bottom: 18px; }
+
+/* Cards */
+.bcard { background: linear-gradient(135deg, #6366f1, #818cf8); border-radius: 12px; padding: 18px 20px; color: #fff; }
+.bcard-label { font-size: 11px; opacity: .8; margin-bottom: 6px; }
+.bcard-value { font-size: 26px; font-weight: 800; line-height: 1; }
+.bcard-sub { font-size: 11px; opacity: .7; margin-top: 6px; }
+.bcard-btn { margin-top: 14px; background: #fff; color: #6366f1; border: none; border-radius: 7px; padding: 7px 18px; font-size: 12px; font-weight: 700; cursor: pointer; }
+
+.stat-card { background: #fff; border: 1.5px solid #e8e8f0; border-radius: 12px; padding: 14px 16px; }
+.stat-label { font-size: 11px; color: #999; margin-bottom: 4px; }
+.stat-value { font-size: 20px; font-weight: 800; color: #333; }
+.stat-sub { font-size: 10px; color: #bbb; margin-top: 4px; }
+.stat-badge { display: inline-block; font-size: 9px; padding: 2px 6px; border-radius: 3px; margin-top: 4px; }
+.badge-green { background: #d1fae5; color: #059669; }
+.badge-gray { background: #f3f4f6; color: #888; }
+
+/* Chart placeholder */
+.chart-section { background: #fff; border: 1.5px solid #e8e8f0; border-radius: 12px; padding: 14px 16px; margin-bottom: 18px; }
+.chart-header { display: flex; align-items: center; justify-content: space-between; margin-bottom: 12px; }
+.chart-title { font-size: 12px; font-weight: 700; color: #333; }
+.chart-legend { display: flex; gap: 12px; font-size: 10px; color: #888; }
+.legend-dot { width: 8px; height: 8px; border-radius: 50%; display: inline-block; margin-right: 4px; }
+.chart-area { display: flex; align-items: flex-end; gap: 3px; height: 60px; padding: 0 2px; }
+.bar-col { flex: 1; display: flex; flex-direction: column; align-items: center; gap: 2px; }
+.bar-fill { width: 100%; border-radius: 3px 3px 0 0; background: #c7d2fe; min-height: 2px; }
+.bar-fill.today { background: #6366f1; }
+.bar-label { font-size: 8px; color: #ccc; }
+.chart-axis { display: flex; justify-content: space-between; margin-top: 4px; padding: 0 2px; font-size: 9px; color: #ccc; }
+
+/* Resume usage table */
+.resume-usage { background: #fff; border: 1.5px solid #e8e8f0; border-radius: 12px; padding: 14px 16px; margin-bottom: 18px; }
+.table-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 10px; }
+.table-title { font-size: 12px; font-weight: 700; color: #333; }
+.table-link { font-size: 10px; color: #6366f1; cursor: pointer; }
+.usage-row { display: flex; align-items: center; padding: 7px 0; border-bottom: 1px solid #f5f5f5; gap: 10px; }
+.usage-row:last-child { border-bottom: none; }
+.usage-dot { width: 8px; height: 8px; border-radius: 50%; background: #6366f1; flex-shrink: 0; }
+.usage-name { font-size: 11px; color: #444; font-weight: 600; flex: 1; }
+.usage-bar-wrap { flex: 2; height: 6px; background: #f0f0f0; border-radius: 3px; overflow: hidden; }
+.usage-bar { height: 100%; border-radius: 3px; background: linear-gradient(90deg, #6366f1, #818cf8); }
+.usage-credits { font-size: 11px; color: #666; font-weight: 700; white-space: nowrap; }
+.usage-money { font-size: 10px; color: #bbb; white-space: nowrap; }
+
+/* Transaction list */
+.tx-list { background: #fff; border: 1.5px solid #e8e8f0; border-radius: 12px; padding: 14px 16px; }
+.tx-row { display: flex; align-items: center; padding: 8px 0; border-bottom: 1px solid #f5f5f5; gap: 10px; }
+.tx-row:last-child { border-bottom: none; }
+.tx-icon { width: 30px; height: 30px; border-radius: 8px; display: flex; align-items: center; justify-content: center; font-size: 14px; flex-shrink: 0; }
+.tx-icon-in { background: #d1fae5; }
+.tx-icon-out { background: #ededff; }
+.tx-icon-gift { background: #fef3c7; }
+.tx-info { flex: 1; }
+.tx-desc { font-size: 11px; color: #333; font-weight: 600; }
+.tx-time { font-size: 10px; color: #bbb; margin-top: 2px; }
+.tx-amount { font-size: 12px; font-weight: 800; white-space: nowrap; }
+.tx-in { color: #059669; }
+.tx-out { color: #6366f1; }
+.tx-balance { font-size: 10px; color: #ccc; white-space: nowrap; }
+
+/* Top-up modal */
+.modal-overlay { background: rgba(0,0,0,.35); padding: 24px; display: flex; align-items: center; justify-content: center; border-radius: 0 0 12px 12px; }
+.modal { background: #fff; border-radius: 14px; width: 100%; max-width: 420px; overflow: hidden; box-shadow: 0 8px 40px rgba(0,0,0,.18); }
+.modal-hdr { padding: 16px 18px 12px; border-bottom: 1px solid #f0f0f0; display: flex; align-items: center; justify-content: space-between; }
+.modal-hdr h3 { font-size: 14px; font-weight: 700; color: #333; }
+.modal-close { color: #bbb; font-size: 16px; cursor: pointer; }
+.modal-body { padding: 16px 18px; }
+.modal-balance { background: #f8f8ff; border-radius: 9px; padding: 10px 14px; margin-bottom: 14px; display: flex; align-items: center; justify-content: space-between; }
+.modal-balance-label { font-size: 11px; color: #888; }
+.modal-balance-val { font-size: 16px; font-weight: 800; color: #6366f1; }
+.modal-balance-sub { font-size: 10px; color: #bbb; }
+.pkg-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 8px; margin-bottom: 14px; }
+.pkg { border: 2px solid #e8e8f0; border-radius: 10px; padding: 10px 8px; text-align: center; cursor: pointer; position: relative; }
+.pkg:hover { border-color: #a5b4fc; }
+.pkg.selected { border-color: #6366f1; background: #f8f8ff; }
+.pkg-price { font-size: 16px; font-weight: 800; color: #333; }
+.pkg-credits { font-size: 11px; color: #6366f1; font-weight: 700; margin-top: 2px; }
+.pkg-bonus { position: absolute; top: -8px; right: -8px; background: #f59e0b; color: #fff; font-size: 9px; font-weight: 800; padding: 2px 6px; border-radius: 6px; }
+.pkg-base { font-size: 9px; color: #bbb; margin-top: 2px; }
+.pay-methods { margin-bottom: 14px; }
+.pay-label { font-size: 11px; color: #999; margin-bottom: 8px; }
+.pay-opts { display: flex; gap: 8px; }
+.pay-opt { flex: 1; border: 2px solid #e8e8f0; border-radius: 8px; padding: 8px; text-align: center; cursor: pointer; font-size: 11px; color: #555; display: flex; align-items: center; justify-content: center; gap: 5px; }
+.pay-opt:hover { border-color: #a5b4fc; }
+.pay-opt.selected { border-color: #6366f1; background: #f8f8ff; color: #6366f1; font-weight: 700; }
+.modal-footer { padding: 12px 18px; border-top: 1px solid #f0f0f0; display: flex; align-items: center; justify-content: space-between; }
+.modal-total { font-size: 12px; color: #888; }
+.modal-total strong { font-size: 16px; color: #333; }
+.pay-btn { background: #6366f1; color: #fff; border: none; border-radius: 8px; padding: 9px 24px; font-size: 13px; font-weight: 700; cursor: pointer; }
+
+/* Editor states */
+.editor-mini { display: flex; height: 200px; border-top: 1px solid #eee; }
+.ed-chat { flex: 1; display: flex; flex-direction: column; }
+.ed-chat-body { flex: 1; padding: 10px 14px; background: #fdfcff; display: flex; flex-direction: column; gap: 7px; overflow: hidden; }
+.msg { max-width: 78%; font-size: 10.5px; line-height: 1.5; padding: 6px 10px; border-radius: 8px; }
+.ai { background: #fff; border: 1px solid #eee; color: #444; align-self: flex-start; }
+.me { background: #6366f1; color: #fff; align-self: flex-end; }
+.ed-bar { padding: 8px; border-top: 1px solid #eee; background: #fff; display: flex; gap: 6px; }
+.ed-input { flex: 1; border: 1.5px solid #e8e8f0; border-radius: 6px; padding: 5px 9px; font-size: 10px; background: #fafafa; color: #444; }
+.send-btn { background: #6366f1; color: #fff; border: none; border-radius: 6px; padding: 5px 10px; font-size: 10px; cursor: pointer; }
+.send-btn:disabled { background: #e0e0e0; color: #aaa; cursor: not-allowed; }
+.empty-send { background: #f3f4f6; border: 1.5px solid #e0e0e0; color: #aaa; border-radius: 6px; padding: 5px 10px; font-size: 10px; cursor: not-allowed; }
+.zero-balance-bar { background: #fef2f2; border-top: 1.5px solid #fca5a5; padding: 10px 14px; display: flex; align-items: center; justify-content: space-between; }
+.zero-text { font-size: 11px; color: #dc2626; font-weight: 600; }
+.zero-btn { background: #ef4444; color: #fff; border: none; border-radius: 6px; padding: 5px 12px; font-size: 11px; font-weight: 700; cursor: pointer; }
+
+/* Layout */
+.two-col { display: grid; grid-template-columns: 1fr 1fr; gap: 20px; }
+.three-col { display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 20px; }
+.anno { font-size: 11px; color: #999; text-align: center; margin-top: 8px; }
+
+/* Flow */
+.flow-card { background: #fff; border-radius: 12px; padding: 16px 20px; border: 1.5px solid #e8e8f0; margin-bottom: 12px; }
+.flow-hdr { font-size: 12px; font-weight: 700; color: #333; margin-bottom: 12px; display: flex; align-items: center; gap: 8px; }
+.badge { width: 20px; height: 20px; border-radius: 50%; display:inline-flex; align-items:center; justify-content:center; font-size:10px; font-weight:800; color:#fff; flex-shrink:0; }
+.b1{background:#6366f1}.b2{background:#f59e0b}.b3{background:#ef4444}
+.steps { display: flex; align-items: center; flex-wrap: wrap; gap: 0; }
+.step { display: flex; flex-direction: column; align-items: center; text-align: center; min-width: 72px; }
+.sicon { width: 38px; height: 38px; border-radius: 9px; display: flex; align-items: center; justify-content: center; font-size: 16px; margin-bottom: 4px; }
+.slabel { font-size: 10px; color: #444; font-weight: 600; line-height: 1.3; }
+.ssub { font-size: 9px; color: #aaa; margin-top: 2px; line-height: 1.3; }
+.arr { color: #ddd; font-size: 16px; margin: 0 2px; padding-bottom: 12px; }
+.si-purple{background:#ededff}.si-blue{background:#e0f2fe}.si-green{background:#d1fae5}
+.si-orange{background:#fef3c7}.si-gray{background:#f3f4f6}.si-red{background:#fee2e2}
+.note { margin-top: 10px; padding: 8px 12px; background: #f8f8ff; border-radius: 8px; border-left: 3px solid #6366f1; font-size: 11px; color: #666; line-height: 1.7; }
+.note strong { color: #6366f1; }
+</style>
+</head>
+<body>
+
+<h1>计费模块 — 产品设计</h1>
+<p class="subtitle">积分制 · 三层用量展示 · 充值流程 · 余额状态管理</p>
+
+<!-- ══════════ 1. 导航栏余额入口 ══════════ -->
+<div class="section">
+  <div class="section-title">一、导航栏余额入口（三种状态）</div>
+  <div style="display:flex;flex-direction:column;gap:14px;">
+
+    <!-- 正常 -->
+    <div class="screen">
+      <div class="bar"><div class="dot dot-r"></div><div class="dot dot-y"></div><div class="dot dot-g"></div><div class="url">正常状态</div></div>
+      <div class="nav">
+        <div class="logo">ResumeAI</div>
+        <div class="nav-right">
+          <div class="balance-chip balance-normal">
+            <span class="gem">💎</span>
+            <span>342 积分</span>
+            <span style="font-size:10px;opacity:.7;">≈¥3.42</span>
+          </div>
+          <div class="user-chip"><div class="avatar">李</div><span>laobai ▾</span></div>
+        </div>
+      </div>
+    </div>
+
+    <!-- 余额偏低 -->
+    <div class="screen">
+      <div class="bar"><div class="dot dot-r"></div><div class="dot dot-y"></div><div class="dot dot-g"></div><div class="url">余额偏低（< 50积分）</div></div>
+      <div class="nav">
+        <div class="logo">ResumeAI</div>
+        <div class="nav-right">
+          <div class="balance-chip balance-warn">
+            <span class="gem">⚠️</span>
+            <span>38 积分</span>
+            <span style="font-size:10px;opacity:.8;">点击充值</span>
+          </div>
+          <div class="user-chip"><div class="avatar">李</div><span>laobai ▾</span></div>
+        </div>
+      </div>
+      <div class="warn-banner">
+        <div class="warn-banner-text">⚠️ 积分即将用完，剩余约可进行 1-2 次对话</div>
+        <button class="warn-banner-btn">立即充值</button>
+      </div>
+    </div>
+
+    <!-- 余额耗尽 -->
+    <div class="screen">
+      <div class="bar"><div class="dot dot-r"></div><div class="dot dot-y"></div><div class="dot dot-g"></div><div class="url">余额耗尽</div></div>
+      <div class="nav">
+        <div class="logo">ResumeAI</div>
+        <div class="nav-right">
+          <div class="balance-chip balance-danger">
+            <span class="gem">🚫</span>
+            <span>0 积分</span>
+            <span style="font-size:10px;opacity:.8;">充值继续</span>
+          </div>
+          <div class="user-chip"><div class="avatar">李</div><span>laobai ▾</span></div>
+        </div>
+      </div>
+      <div class="danger-banner">
+        <div class="danger-banner-text">🚫 积分已用完，无法继续对话。充值后立即恢复。</div>
+        <button class="danger-banner-btn">充值积分</button>
+      </div>
+    </div>
+
+  </div>
+  <div class="anno">积分余额常驻导航栏，点击直接打开充值弹窗</div>
+</div>
+
+<!-- ══════════ 2. 编辑器内余额为0状态 ══════════ -->
+<div class="section">
+  <div class="section-title">二、编辑器内余额耗尽（输入框禁用）</div>
+  <div class="two-col">
+    <!-- Normal chat -->
+    <div>
+      <div class="screen">
+        <div class="bar"><div class="dot dot-r"></div><div class="dot dot-y"></div><div class="dot dot-g"></div><div class="url">正常状态</div></div>
+        <div class="editor-mini">
+          <div class="ed-chat">
+            <div class="ed-chat-body">
+              <div class="msg ai">已更新工作经历，右侧简历已刷新。还有什么需要调整的吗？</div>
+              <div class="msg me">把技能部分的 Go 放到最前面</div>
+              <div class="msg ai">好的，已调整技能顺序，Go 已提至首位。</div>
+            </div>
+            <div class="ed-bar">
+              <input class="ed-input" placeholder="继续和 AI 对话…" />
+              <button class="send-btn">发送</button>
+            </div>
+          </div>
+        </div>
+      </div>
+      <div class="anno">正常状态，输入框可用</div>
+    </div>
+    <!-- Zero balance -->
+    <div>
+      <div class="screen">
+        <div class="bar"><div class="dot dot-r"></div><div class="dot dot-y"></div><div class="dot dot-g"></div><div class="url">余额为 0</div></div>
+        <div class="editor-mini">
+          <div class="ed-chat">
+            <div class="ed-chat-body">
+              <div class="msg ai">已更新工作经历，右侧简历已刷新。还有什么需要调整的吗？</div>
+              <div class="msg me">把技能部分的 Go 放到最前面</div>
+              <div class="msg ai" style="background:#fef2f2;border-color:#fca5a5;color:#991b1b;">⚠️ 积分不足，本次请求未能处理。充值后继续。</div>
+            </div>
+            <div class="zero-balance-bar">
+              <div class="zero-text">🚫 积分已用完，无法发送消息</div>
+              <button class="zero-btn">充值积分 →</button>
+            </div>
+          </div>
+        </div>
+      </div>
+      <div class="anno">余额耗尽时底部替换为充值引导，输入框隐藏</div>
+    </div>
+  </div>
+</div>
+
+<!-- ══════════ 3. 充值弹窗 ══════════ -->
+<div class="section">
+  <div class="section-title">三、充值弹窗</div>
+  <div class="screen">
+    <div class="bar"><div class="dot dot-r"></div><div class="dot dot-y"></div><div class="dot dot-g"></div><div class="url">点击余额或充值按钮弹出</div></div>
+    <div class="nav"><div class="logo">ResumeAI</div><div class="nav-right"><div class="balance-chip balance-warn"><span>⚠️</span><span>38 积分</span></div><div class="user-chip"><div class="avatar">李</div></div></div></div>
+    <div class="modal-overlay">
+      <div class="modal">
+        <div class="modal-hdr">
+          <h3>💎 充值积分</h3>
+          <span class="modal-close">✕</span>
+        </div>
+        <div class="modal-body">
+          <div class="modal-balance">
+            <div>
+              <div class="modal-balance-label">当前余额</div>
+              <div class="modal-balance-val">38 积分</div>
+              <div class="modal-balance-sub">≈ ¥0.38 · 购买积分永久有效</div>
+            </div>
+            <div style="font-size:11px;color:#bbb;text-align:right;">赠送积分：<br><span style="color:#f59e0b;font-weight:700;">0 积分</span><br><span style="font-size:9px;">（已用完）</span></div>
+          </div>
+
+          <div style="font-size:11px;font-weight:700;color:#555;margin-bottom:8px;">选择充值金额</div>
+          <div class="pkg-grid">
+            <div class="pkg">
+              <div class="pkg-price">¥5</div>
+              <div class="pkg-credits">500 积分</div>
+              <div class="pkg-base">¥0.01 / 积分</div>
+            </div>
+            <div class="pkg selected">
+              <div class="pkg-price">¥10</div>
+              <div class="pkg-credits">1000 积分</div>
+              <div class="pkg-base">¥0.01 / 积分</div>
+            </div>
+            <div class="pkg">
+              <span class="pkg-bonus">+10%</span>
+              <div class="pkg-price">¥30</div>
+              <div class="pkg-credits">3300 积分</div>
+              <div class="pkg-base">¥0.009 / 积分</div>
+            </div>
+            <div class="pkg">
+              <span class="pkg-bonus">+10%</span>
+              <div class="pkg-price">¥50</div>
+              <div class="pkg-credits">5500 积分</div>
+              <div class="pkg-base">¥0.009 / 积分</div>
+            </div>
+            <div class="pkg">
+              <span class="pkg-bonus">+20%</span>
+              <div class="pkg-price">¥100</div>
+              <div class="pkg-credits">12000 积分</div>
+              <div class="pkg-base">¥0.008 / 积分</div>
+            </div>
+            <div class="pkg" style="display:flex;flex-direction:column;align-items:center;justify-content:center;border-style:dashed;color:#bbb;font-size:10px;">
+              自定义<br>金额
+            </div>
+          </div>
+
+          <div class="pay-methods">
+            <div class="pay-label">支付方式</div>
+            <div class="pay-opts">
+              <div class="pay-opt selected">🟢 微信支付</div>
+              <div class="pay-opt">🔵 支付宝</div>
+            </div>
+          </div>
+        </div>
+        <div class="modal-footer">
+          <div class="modal-total">实付 <strong>¥10.00</strong>，到账 <span style="color:#6366f1;font-weight:700;">1000 积分</span></div>
+          <button class="pay-btn">立即支付</button>
+        </div>
+      </div>
+    </div>
+  </div>
+  <div class="anno">套餐有赠送标注 · 底部实时显示到账积分 · 支持微信/支付宝</div>
+</div>
+
+<!-- ══════════ 4. 账单页面 ══════════ -->
+<div class="section">
+  <div class="section-title">四、账单页面（/billing）</div>
+  <div class="screen">
+    <div class="bar"><div class="dot dot-r"></div><div class="dot dot-y"></div><div class="dot dot-g"></div><div class="url">resumeai.app/billing</div></div>
+    <div class="nav"><div class="logo">ResumeAI</div><div class="nav-right"><div class="balance-chip balance-normal"><span class="gem">💎</span><span>342 积分</span></div><div class="user-chip"><div class="avatar">李</div></div></div></div>
+    <div class="billing-layout">
+      <!-- Sidebar -->
+      <div class="billing-sidebar">
+        <div class="side-item active">💰 积分总览</div>
+        <div class="side-item">📊 使用明细</div>
+        <div class="side-item">🧾 充值记录</div>
+        <div class="side-item" style="margin-top:auto;">⚙️ 账号设置</div>
+      </div>
+      <!-- Main -->
+      <div class="billing-main">
+        <!-- Top cards -->
+        <div class="billing-grid">
+          <div class="bcard">
+            <div class="bcard-label">💎 当前余额</div>
+            <div class="bcard-value">342</div>
+            <div class="bcard-sub">积分 ≈ ¥3.42 · 购买积分永久有效</div>
+            <button class="bcard-btn">充值积分 +</button>
+          </div>
+          <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;">
+            <div class="stat-card">
+              <div class="stat-label">本月消耗</div>
+              <div class="stat-value" style="font-size:18px;">658</div>
+              <div class="stat-sub">积分 ≈ ¥6.58</div>
+              <div class="stat-badge badge-green">较上月 -12%</div>
+            </div>
+            <div class="stat-card">
+              <div class="stat-label">累计充值</div>
+              <div class="stat-value" style="font-size:18px;">¥40</div>
+              <div class="stat-sub">4000 积分</div>
+              <div class="stat-badge badge-gray">3 次充值</div>
+            </div>
+            <div class="stat-card">
+              <div class="stat-label">赠送积分</div>
+              <div class="stat-value" style="color:#f59e0b;font-size:18px;">100</div>
+              <div class="stat-sub">注册赠送</div>
+              <div class="stat-badge" style="background:#fff7ed;color:#d97706;">已全部使用</div>
+            </div>
+            <div class="stat-card">
+              <div class="stat-label">今日消耗</div>
+              <div class="stat-value" style="font-size:18px;">42</div>
+              <div class="stat-sub">积分 ≈ ¥0.42</div>
+              <div class="stat-badge badge-gray">5 次对话</div>
+            </div>
+          </div>
+        </div>
+
+        <!-- Usage chart -->
+        <div class="chart-section">
+          <div class="chart-header">
+            <div class="chart-title">近 30 天积分消耗</div>
+            <div class="chart-legend">
+              <span><span class="legend-dot" style="background:#6366f1"></span>今日</span>
+              <span><span class="legend-dot" style="background:#c7d2fe"></span>历史</span>
+            </div>
+          </div>
+          <div class="chart-area">
+            <div class="bar-col"><div class="bar-fill" style="height:20px"></div></div>
+            <div class="bar-col"><div class="bar-fill" style="height:35px"></div></div>
+            <div class="bar-col"><div class="bar-fill" style="height:15px"></div></div>
+            <div class="bar-col"><div class="bar-fill" style="height:8px"></div></div>
+            <div class="bar-col"><div class="bar-fill" style="height:42px"></div></div>
+            <div class="bar-col"><div class="bar-fill" style="height:28px"></div></div>
+            <div class="bar-col"><div class="bar-fill" style="height:18px"></div></div>
+            <div class="bar-col"><div class="bar-fill" style="height:55px"></div></div>
+            <div class="bar-col"><div class="bar-fill" style="height:30px"></div></div>
+            <div class="bar-col"><div class="bar-fill" style="height:12px"></div></div>
+            <div class="bar-col"><div class="bar-fill" style="height:38px"></div></div>
+            <div class="bar-col"><div class="bar-fill" style="height:22px"></div></div>
+            <div class="bar-col"><div class="bar-fill" style="height:45px"></div></div>
+            <div class="bar-col"><div class="bar-fill" style="height:20px"></div></div>
+            <div class="bar-col"><div class="bar-fill" style="height:10px"></div></div>
+            <div class="bar-col"><div class="bar-fill" style="height:32px"></div></div>
+            <div class="bar-col"><div class="bar-fill" style="height:48px"></div></div>
+            <div class="bar-col"><div class="bar-fill" style="height:25px"></div></div>
+            <div class="bar-col"><div class="bar-fill" style="height:14px"></div></div>
+            <div class="bar-col"><div class="bar-fill" style="height:36px"></div></div>
+            <div class="bar-col"><div class="bar-fill" style="height:50px"></div></div>
+            <div class="bar-col"><div class="bar-fill" style="height:28px"></div></div>
+            <div class="bar-col"><div class="bar-fill" style="height:16px"></div></div>
+            <div class="bar-col"><div class="bar-fill" style="height:40px"></div></div>
+            <div class="bar-col"><div class="bar-fill" style="height:22px"></div></div>
+            <div class="bar-col"><div class="bar-fill" style="height:12px"></div></div>
+            <div class="bar-col"><div class="bar-fill" style="height:34px"></div></div>
+            <div class="bar-col"><div class="bar-fill" style="height:46px"></div></div>
+            <div class="bar-col"><div class="bar-fill" style="height:30px"></div></div>
+            <div class="bar-col"><div class="bar-fill today" style="height:42px"></div></div>
+          </div>
+          <div class="chart-axis"><span>30天前</span><span>15天前</span><span>今天</span></div>
+        </div>
+
+        <!-- Per-resume usage -->
+        <div class="resume-usage">
+          <div class="table-header">
+            <div class="table-title">按简历用量（本月）</div>
+            <div class="table-link">查看全部明细 →</div>
+          </div>
+          <div class="usage-row">
+            <div class="usage-dot" style="background:#6366f1"></div>
+            <div class="usage-name">字节专项版</div>
+            <div class="usage-bar-wrap"><div class="usage-bar" style="width:78%"></div></div>
+            <div class="usage-credits">312 积分</div>
+            <div class="usage-money">≈¥3.12</div>
+          </div>
+          <div class="usage-row">
+            <div class="usage-dot" style="background:#818cf8"></div>
+            <div class="usage-name">后端工程师</div>
+            <div class="usage-bar-wrap"><div class="usage-bar" style="width:50%;background:linear-gradient(90deg,#818cf8,#a5b4fc)"></div></div>
+            <div class="usage-credits">200 积分</div>
+            <div class="usage-money">≈¥2.00</div>
+          </div>
+          <div class="usage-row">
+            <div class="usage-dot" style="background:#c7d2fe"></div>
+            <div class="usage-name">English CV</div>
+            <div class="usage-bar-wrap"><div class="usage-bar" style="width:22%;background:linear-gradient(90deg,#c7d2fe,#ddd6fe)"></div></div>
+            <div class="usage-credits">88 积分</div>
+            <div class="usage-money">≈¥0.88</div>
+          </div>
+          <div class="usage-row">
+            <div class="usage-dot" style="background:#e0e0e0"></div>
+            <div class="usage-name">技术负责人版</div>
+            <div class="usage-bar-wrap"><div class="usage-bar" style="width:15%;background:#e0e0e0"></div></div>
+            <div class="usage-credits">58 积分</div>
+            <div class="usage-money">≈¥0.58</div>
+          </div>
+        </div>
+
+        <!-- Transaction list -->
+        <div class="tx-list">
+          <div class="table-header" style="margin-bottom:8px;">
+            <div class="table-title">近期流水</div>
+            <div class="table-link">查看全部 →</div>
+          </div>
+          <div class="tx-row">
+            <div class="tx-icon tx-icon-out">💬</div>
+            <div class="tx-info"><div class="tx-desc">JD匹配分析 · 字节专项版</div><div class="tx-time">今天 14:32</div></div>
+            <div class="tx-amount tx-out">-28 积分</div>
+            <div class="tx-balance">余342</div>
+          </div>
+          <div class="tx-row">
+            <div class="tx-icon tx-icon-out">💬</div>
+            <div class="tx-info"><div class="tx-desc">简历优化对话 · 字节专项版</div><div class="tx-time">今天 14:18</div></div>
+            <div class="tx-amount tx-out">-14 积分</div>
+            <div class="tx-balance">余370</div>
+          </div>
+          <div class="tx-row">
+            <div class="tx-icon tx-icon-in">💳</div>
+            <div class="tx-info"><div class="tx-desc">充值 ¥30（含赠送 10%）</div><div class="tx-time">昨天 20:15</div></div>
+            <div class="tx-amount tx-in">+3300 积分</div>
+            <div class="tx-balance">余3658</div>
+          </div>
+          <div class="tx-row">
+            <div class="tx-icon tx-icon-out">📤</div>
+            <div class="tx-info"><div class="tx-desc">简历文件解析 · 后端工程师</div><div class="tx-time">2天前 10:05</div></div>
+            <div class="tx-amount tx-out">-45 积分</div>
+            <div class="tx-balance">余358</div>
+          </div>
+          <div class="tx-row">
+            <div class="tx-icon tx-icon-gift">🎁</div>
+            <div class="tx-info"><div class="tx-desc">新用户注册赠送</div><div class="tx-time">2025-04-01</div></div>
+            <div class="tx-amount" style="color:#f59e0b;font-weight:800;">+100 积分</div>
+            <div class="tx-balance">余100</div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+  <div class="anno">账单页：总览卡片 → 用量图表 → 按简历分布 → 逐笔流水</div>
+</div>
+
+<!-- ══════════ 5. 充值流程 ══════════ -->
+<div class="section">
+  <div class="section-title">五、充值完整流程</div>
+  <div class="flow-card">
+    <div class="flow-hdr"><span class="badge b1">↑</span> 正常充值</div>
+    <div class="steps">
+      <div class="step"><div class="sicon si-purple">💎</div><div class="slabel">点击余额</div><div class="ssub">导航栏</div></div><div class="arr">→</div>
+      <div class="step"><div class="sicon si-blue">📦</div><div class="slabel">选套餐</div><div class="ssub">¥5 - ¥100</div></div><div class="arr">→</div>
+      <div class="step"><div class="sicon si-blue">📱</div><div class="slabel">选支付</div><div class="ssub">微信/支付宝</div></div><div class="arr">→</div>
+      <div class="step"><div class="sicon si-orange">⏳</div><div class="slabel">扫码支付</div></div><div class="arr">→</div>
+      <div class="step"><div class="sicon si-green">✅</div><div class="slabel">到账</div><div class="ssub">余额即时更新</div></div><div class="arr">→</div>
+      <div class="step"><div class="sicon si-purple">💬</div><div class="slabel">继续对话</div></div>
+    </div>
+    <div class="note">支付成功后弹窗自动关闭，导航栏余额立即刷新，无需手动刷新页面。</div>
+  </div>
+  <div class="flow-card">
+    <div class="flow-hdr"><span class="badge b2">⚠</span> 对话中余额不足</div>
+    <div class="steps">
+      <div class="step"><div class="sicon si-purple">💬</div><div class="slabel">发送消息</div></div><div class="arr">→</div>
+      <div class="step"><div class="sicon si-red">🚫</div><div class="slabel">后端拒绝</div><div class="ssub">402返回</div></div><div class="arr">→</div>
+      <div class="step"><div class="sicon si-red">❌</div><div class="slabel">AI回复</div><div class="ssub">「积分不足」</div></div><div class="arr">→</div>
+      <div class="step"><div class="sicon si-orange">💳</div><div class="slabel">底部充值</div><div class="ssub">引导CTA</div></div><div class="arr">→</div>
+      <div class="step"><div class="sicon si-green">✅</div><div class="slabel">充值完成</div><div class="ssub">输入框恢复</div></div>
+    </div>
+    <div class="note">后端每次请求前校验余额，余额不足返回 402，<strong>前端不做余额判断</strong>（防绕过），仅负责展示引导 UI。</div>
+  </div>
+</div>
+
+<div style="height:48px;"></div>
+</body>
+</html>
