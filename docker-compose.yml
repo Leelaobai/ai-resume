@@ -31,6 +31,27 @@ services:
     volumes:
       - redisdata:/data
 
+  billing:
+    build:
+      context: ./services/billing
+      dockerfile: Dockerfile
+    container_name: tadpoles-billing
+    ports:
+      - "8084:8084"
+      - "9094:9094"
+    environment:
+      DB_DSN: "root:root123@tcp(mysql:3306)/tadpoles_billing?charset=utf8mb4&parseTime=True&loc=UTC"
+      REDIS_ADDR: "redis:6379"
+      SERVER_PORT: "8084"
+      GRPC_PORT: "9094"
+    depends_on:
+      - mysql
+      - redis
+    deploy:
+      resources:
+        limits:
+          memory: 128M
+
 volumes:
   pgdata:
   mysqldata:
