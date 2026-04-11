@@ -1,0 +1,68 @@
+syntax = "proto3";
+package billing.v1;
+option go_package = "github.com/Leelaobai/ai-resume/services/billing/proto/billing/v1;billingv1";
+
+service BillingService {
+  rpc CreateWallet(CreateWalletRequest) returns (CreateWalletResponse);
+  rpc GetBalance(GetBalanceRequest) returns (GetBalanceResponse);
+  rpc PreAuth(PreAuthRequest) returns (PreAuthResponse);
+  rpc Settle(SettleRequest) returns (SettleResponse);
+  rpc Rollback(RollbackRequest) returns (RollbackResponse);
+  rpc IssueGrant(IssueGrantRequest) returns (IssueGrantResponse);
+}
+
+message CreateWalletRequest {
+  string user_id = 1;
+}
+message CreateWalletResponse {
+  string wallet_id = 1;
+}
+
+message GetBalanceRequest {
+  string user_id = 1;
+}
+message GetBalanceResponse {
+  int64 balance   = 1;
+  int64 frozen    = 2;
+  int64 available = 3;
+}
+
+message PreAuthRequest {
+  string user_id          = 1;
+  string service_name     = 2;
+  string request_id       = 3;
+  int64  estimated_credits = 4;
+}
+message PreAuthResponse {
+  string auth_id         = 1;
+  int64  frozen_credits  = 2;
+}
+
+message SettleRequest {
+  string auth_id         = 1;
+  int64  actual_credits  = 2;
+  string service_name    = 3;
+  string description     = 4;
+  string request_id      = 5;
+}
+message SettleResponse {
+  string transaction_id  = 1;
+}
+
+message RollbackRequest {
+  string auth_id = 1;
+}
+message RollbackResponse {
+  bool success = 1;
+}
+
+message IssueGrantRequest {
+  string user_id   = 1;
+  string type      = 2;
+  int64  credits   = 3;
+  int64  ttl_days  = 4;
+}
+message IssueGrantResponse {
+  string grant_id        = 1;
+  string transaction_id  = 2;
+}

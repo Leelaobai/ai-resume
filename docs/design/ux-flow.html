@@ -1,0 +1,698 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<title>AI简历助手 — 完整产品设计</title>
+<style>
+* { box-sizing: border-box; margin: 0; padding: 0; }
+body { font-family: -apple-system, 'PingFang SC', sans-serif; background: #f0f2f5; color: #1a1a2e; }
+
+h1 { text-align: center; padding: 32px 0 6px; font-size: 20px; color: #222; }
+.subtitle { text-align: center; color: #999; font-size: 12px; margin-bottom: 40px; }
+
+.section { max-width: 1200px; margin: 0 auto 60px; padding: 0 24px; }
+.section-title {
+  font-size: 13px; font-weight: 700; color: #555; letter-spacing: .3px;
+  margin-bottom: 18px; padding-left: 10px;
+  border-left: 3px solid #6366f1;
+}
+
+/* Chrome Frame */
+.screen { background: #fff; border-radius: 12px; border: 1.5px solid #ddd; overflow: hidden; box-shadow: 0 2px 16px rgba(0,0,0,.07); }
+.bar { background: #1e1e2e; color: #666; font-size: 11px; padding: 8px 14px; display: flex; align-items: center; gap: 6px; }
+.dot { width: 9px; height: 9px; border-radius: 50%; display:inline-block; }
+.dot-r{background:#ff5f57}.dot-y{background:#febc2e}.dot-g{background:#28c840}
+.url { margin-left: 6px; background: #2d2d3e; padding: 2px 14px; border-radius: 4px; font-size: 11px; color: #777; }
+
+/* Navbar */
+.nav { display: flex; align-items: center; justify-content: space-between; padding: 11px 20px; border-bottom: 1px solid #f0f0f0; background: #fff; }
+.logo { font-weight: 800; font-size: 15px; color: #6366f1; }
+.user-chip { display:flex; align-items:center; gap:8px; font-size:12px; color:#666; cursor:pointer; }
+.avatar { width: 26px; height: 26px; border-radius: 50%; background: #6366f1; color: #fff; display: flex; align-items: center; justify-content: center; font-size: 11px; font-weight: 700; }
+
+/* Dashboard */
+.dash-body { padding: 20px; }
+.dash-head { display:flex; align-items:center; justify-content:space-between; margin-bottom:18px; }
+.dash-head h2 { font-size: 15px; color: #333; }
+.btn-primary { background: #6366f1; color: #fff; border: none; border-radius: 6px; padding: 7px 15px; font-size: 12px; font-weight: 600; cursor: pointer; }
+.resume-grid { display: grid; grid-template-columns: repeat(4, 1fr); gap: 14px; }
+.rcard { border: 1.5px solid #e8e8f0; border-radius: 10px; overflow: hidden; cursor: pointer; position: relative; }
+.rcard:hover .rcard-hover { opacity: 1; }
+.rcard-hover {
+  position: absolute; top: 0; left: 0; right: 0; bottom: 0;
+  background: rgba(99,102,241,.06); border-radius: 10px;
+  display: flex; align-items: flex-start; justify-content: flex-end;
+  padding: 8px; gap: 4px; opacity: 0; transition: opacity .15s;
+  border: 1.5px solid #6366f1;
+}
+.icon-btn { width: 24px; height: 24px; border-radius: 5px; background: #fff; border: 1px solid #e0e0e0; display: flex; align-items: center; justify-content: center; font-size: 11px; cursor: pointer; box-shadow: 0 1px 4px rgba(0,0,0,.1); }
+.rcard-thumb { height: 72px; padding: 10px 12px; background: linear-gradient(135deg, #f8f8ff 0%, #f0f0fa 100%); display: flex; flex-direction: column; gap: 5px; }
+.tl { height: 5px; border-radius: 3px; background: #ddd; }
+.tl.h { background: #6366f1; opacity: .55; width: 48%; }
+.tl.s { width: 32%; } .tl.m { width: 60%; } .tl.l { width: 78%; }
+.rcard-info { padding: 9px 12px; }
+.rcard-name { font-size: 12px; font-weight: 700; color: #333; }
+.rcard-meta { font-size: 10px; color: #aaa; margin-top: 3px; }
+.rcard-tags { display: flex; gap: 4px; margin-top: 5px; flex-wrap: wrap; }
+.rtag { font-size: 9px; background: #f0f0ff; color: #6366f1; padding: 1px 6px; border-radius: 3px; }
+.rcard-new { border-style: dashed; display: flex; align-items: center; justify-content: center; min-height: 118px; color: #c0c0d0; font-size: 12px; flex-direction: column; gap: 6px; }
+.rcard-new span { font-size: 22px; }
+
+/* Modal overlay */
+.modal-wrap { background: rgba(0,0,0,.4); border-radius: 0 0 12px 12px; display: flex; align-items: center; justify-content: center; padding: 30px 20px; }
+.modal { background: #fff; border-radius: 14px; width: 100%; max-width: 700px; overflow: hidden; box-shadow: 0 8px 40px rgba(0,0,0,.18); }
+.modal-header { padding: 18px 22px 14px; border-bottom: 1px solid #f0f0f0; display: flex; align-items: center; justify-content: space-between; }
+.modal-header h3 { font-size: 15px; font-weight: 700; color: #333; }
+.modal-close { color: #bbb; font-size: 18px; cursor: pointer; }
+.modal-body { display: flex; }
+.modal-left { flex: 1; padding: 16px 18px; border-right: 1px solid #f0f0f0; }
+.modal-right { width: 200px; padding: 16px; background: #fafafe; }
+.modal-section-label { font-size: 10px; font-weight: 700; color: #bbb; text-transform: uppercase; letter-spacing: .5px; margin-bottom: 10px; }
+.tag-filters { display: flex; flex-wrap: wrap; gap: 5px; margin-bottom: 14px; }
+.filter-tag { font-size: 10px; padding: 3px 9px; border-radius: 10px; border: 1.5px solid #e0e0e0; color: #888; cursor: pointer; background: #fff; }
+.filter-tag.active { border-color: #6366f1; color: #6366f1; background: #f0f0ff; font-weight: 600; }
+.tpl-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 8px; }
+.tpl-card { border: 2px solid #e8e8f0; border-radius: 8px; overflow: hidden; cursor: pointer; }
+.tpl-card.selected { border-color: #6366f1; }
+.tpl-card.selected .tpl-name { color: #6366f1; }
+.tpl-thumb { height: 54px; background: linear-gradient(135deg, #f4f4ff, #eeeeff); padding: 6px 8px; display: flex; flex-direction: column; gap: 4px; }
+.tpl-thumb.modern { background: linear-gradient(135deg, #f0f9ff, #e0f2fe); }
+.tpl-thumb.clean { background: linear-gradient(135deg, #f0fdf4, #dcfce7); }
+.tpl-name { font-size: 10px; text-align: center; padding: 4px; color: #555; font-weight: 600; border-top: 1px solid #f0f0f0; }
+.tpl-tags-row { display: flex; gap: 3px; margin-top: 4px; justify-content: center; flex-wrap: wrap; }
+.tpl-tag { font-size: 9px; background: #ededff; color: #6366f1; padding: 1px 5px; border-radius: 3px; }
+
+.start-options { display: flex; flex-direction: column; gap: 10px; }
+.start-opt {
+  border: 2px solid #e8e8f0; border-radius: 10px; padding: 12px;
+  cursor: pointer; transition: all .15s;
+}
+.start-opt:hover, .start-opt.selected { border-color: #6366f1; background: #f8f8ff; }
+.start-opt-icon { font-size: 20px; margin-bottom: 6px; }
+.start-opt-title { font-size: 12px; font-weight: 700; color: #333; margin-bottom: 2px; }
+.start-opt-sub { font-size: 10px; color: #999; line-height: 1.4; }
+.modal-footer { padding: 14px 18px; border-top: 1px solid #f0f0f0; display: flex; justify-content: flex-end; gap: 8px; }
+.btn-cancel { background: transparent; border: 1.5px solid #e0e0e0; color: #888; border-radius: 6px; padding: 7px 16px; font-size: 12px; cursor: pointer; }
+.btn-confirm { background: #6366f1; color: #fff; border: none; border-radius: 6px; padding: 7px 18px; font-size: 12px; font-weight: 600; cursor: pointer; }
+
+/* Editor */
+.editor { display: flex; height: 420px; }
+.ed-left { width: 175px; flex-shrink: 0; border-right: 1px solid #eee; background: #fafafa; display: flex; flex-direction: column; }
+.ed-logo { padding: 11px 14px; font-weight: 800; font-size: 14px; color: #6366f1; border-bottom: 1px solid #eee; }
+.resume-list-label { font-size: 10px; color: #c0c0c0; padding: 10px 14px 4px; letter-spacing: .4px; text-transform: uppercase; }
+.ritem { padding: 8px 12px; margin: 1px 6px; border-radius: 7px; cursor: pointer; display: flex; align-items: center; gap: 8px; }
+.ritem:hover { background: #ededff; }
+.ritem.active { background: #ededff; }
+.ritem-dot { width: 7px; height: 7px; border-radius: 50%; background: #ddd; flex-shrink: 0; }
+.ritem.active .ritem-dot { background: #6366f1; }
+.ritem-info { min-width: 0; }
+.ritem-title { font-size: 11px; font-weight: 600; color: #444; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.ritem.active .ritem-title { color: #6366f1; }
+.ritem-time { font-size: 10px; color: #bbb; margin-top: 1px; }
+.ed-left-btns { padding: 8px 10px 12px; display: flex; flex-direction: column; gap: 6px; margin-top: auto; }
+.copy-btn { border: 1.5px solid #e0e0e0; border-radius: 7px; padding: 6px 10px; font-size: 10px; color: #888; text-align: center; cursor: pointer; background: #fff; display: flex; align-items: center; justify-content: center; gap: 4px; }
+.copy-btn:hover { border-color: #6366f1; color: #6366f1; }
+.new-resume-btn { background: #6366f1; border-radius: 7px; padding: 7px 10px; font-size: 11px; color: #fff; text-align: center; cursor: pointer; border: none; font-weight: 600; }
+
+.ed-mid { flex: 1; display: flex; flex-direction: column; min-width: 0; }
+.chat-top-bar {
+  padding: 0 12px;
+  border-bottom: 1px solid #eee;
+  background: #fff;
+  overflow: hidden;
+}
+.jd-panel {
+  padding: 8px 0 10px;
+  display: flex; gap: 7px; align-items: flex-start;
+}
+.jd-textarea {
+  flex: 1; border: 1.5px solid #e0e0e0; border-radius: 7px;
+  padding: 6px 9px; font-size: 10px; color: #666;
+  background: #fafafe; resize: none; height: 38px;
+  font-family: inherit;
+}
+.jd-send { background: #6366f1; color: #fff; border: none; border-radius: 7px; padding: 6px 10px; font-size: 10px; cursor: pointer; white-space: nowrap; font-weight: 600; }
+.jd-label { font-size: 9px; color: #aaa; white-space: nowrap; padding-top: 10px; }
+
+.upload-bar {
+  padding: 6px 0 8px;
+  border-top: 1px solid #f5f5f5;
+  display: flex; align-items: center; gap: 8px;
+}
+.upload-btn { border: 1.5px dashed #ddd; border-radius: 6px; padding: 4px 10px; font-size: 10px; color: #999; cursor: pointer; background: #fff; display: flex; align-items: center; gap: 4px; }
+.upload-btn:hover { border-color: #6366f1; color: #6366f1; }
+.upload-hint { font-size: 9px; color: #ccc; }
+
+.chat-header { padding: 10px 14px; border-bottom: 1px solid #eee; font-size: 11px; color: #555; background: #fff; display: flex; align-items: center; justify-content: space-between; }
+.resume-title-edit { font-weight: 700; color: #333; border: none; outline: none; font-size: 11px; background: transparent; cursor: text; }
+.resume-title-edit:focus { border-bottom: 1.5px solid #6366f1; }
+.chat-tag { background: #d1fae5; color: #059669; padding: 2px 8px; border-radius: 10px; font-size: 10px; }
+
+.chat-msgs { flex: 1; padding: 12px; display: flex; flex-direction: column; gap: 7px; background: #fdfcff; overflow: hidden; }
+.msg { max-width: 78%; font-size: 10.5px; line-height: 1.55; padding: 7px 10px; border-radius: 8px; }
+.ai { background: #fff; border: 1px solid #eee; color: #444; align-self: flex-start; }
+.me { background: #6366f1; color: #fff; align-self: flex-end; }
+.system-msg { align-self: flex-start; background: #fffbeb; border: 1px solid #fde68a; border-radius: 7px; padding: 5px 10px; font-size: 10px; color: #92400e; display: flex; align-items: center; gap: 5px; }
+.conflict-card { align-self: flex-start; background: #fff7ed; border: 1.5px solid #fdba74; border-radius: 9px; padding: 10px 12px; font-size: 10px; color: #7c2d12; max-width: 85%; }
+.conflict-card .cc-title { font-weight: 700; margin-bottom: 5px; }
+.conflict-card .cc-item { color: #9a3412; margin: 2px 0; }
+.conflict-btns { display: flex; gap: 6px; margin-top: 8px; }
+.cc-btn { font-size: 10px; padding: 4px 10px; border-radius: 5px; cursor: pointer; border: none; font-weight: 600; }
+.cc-merge { background: #6366f1; color: #fff; }
+.cc-replace { background: #fff; border: 1.5px solid #fdba74 !important; color: #9a3412; }
+
+.chat-bar { padding: 9px; border-top: 1px solid #eee; background: #fff; display: flex; gap: 7px; }
+.chat-bar input { flex: 1; border: 1.5px solid #e8e8f0; border-radius: 6px; padding: 6px 10px; font-size: 11px; outline: none; background: #fafafa; color: #444; }
+.send { background: #6366f1; color: #fff; border: none; border-radius: 6px; padding: 6px 12px; font-size: 11px; cursor: pointer; }
+
+.ed-right { width: 195px; flex-shrink: 0; border-left: 1px solid #eee; display: flex; flex-direction: column; background: #f8f8fc; }
+.prev-hdr { padding: 10px 12px; border-bottom: 1px solid #eee; background: #fff; font-size: 11px; color: #888; display: flex; align-items: center; justify-content: space-between; }
+.prev-hdr a { font-size: 10px; color: #6366f1; cursor: pointer; }
+.prev-body { flex: 1; padding: 10px; }
+.a4 { background: #fff; border: 1px solid #ddd; border-radius: 4px; padding: 10px; height: 220px; overflow: hidden; box-shadow: 0 2px 8px rgba(0,0,0,.05); }
+.a4-name { font-size: 11px; font-weight: 800; color: #333; border-bottom: 1px solid #6366f1; padding-bottom: 4px; margin-bottom: 6px; }
+.a4l { height: 5px; border-radius: 2px; background: #eee; margin: 4px 0; }
+.a4l.d { background: #ccc; }
+.a4sec { margin-top: 8px; }
+.a4sec-t { font-size: 9px; font-weight: 700; color: #6366f1; margin-bottom: 4px; }
+.prev-foot { padding: 8px 10px; border-top: 1px solid #eee; background: #fff; display: flex; gap: 6px; }
+.btn-tpl { font-size: 10px; padding: 5px 9px; border-radius: 5px; cursor: pointer; border: 1.5px solid #e0e0e0 !important; background: #fff; color: #666; }
+.btn-exp { font-size: 10px; padding: 5px 9px; border-radius: 5px; cursor: pointer; border: none; background: #6366f1; color: #fff; flex: 1; }
+
+/* Callout annotations */
+.annotated { position: relative; }
+.callout {
+  position: absolute;
+  background: #1e1e2e; color: #fff;
+  font-size: 10px; line-height: 1.4;
+  padding: 5px 9px; border-radius: 6px;
+  white-space: nowrap; z-index: 10;
+  box-shadow: 0 2px 10px rgba(0,0,0,.2);
+}
+.callout::before {
+  content: '';
+  position: absolute;
+  border: 5px solid transparent;
+}
+.callout.right::before { border-left-color: #1e1e2e; left: 100%; top: 50%; transform: translateY(-50%); }
+.callout.left::before { border-right-color: #1e1e2e; right: 100%; top: 50%; transform: translateY(-50%); }
+.callout.bottom::before { border-top-color: #1e1e2e; top: 100%; left: 50%; transform: translateX(-50%); }
+.callout.top::before { border-bottom-color: #1e1e2e; bottom: 100%; left: 50%; transform: translateX(-50%); }
+.cnum { display: inline-block; background: #6366f1; color: #fff; width: 14px; height: 14px; border-radius: 50%; font-size: 9px; font-weight: 800; text-align: center; line-height: 14px; margin-right: 4px; }
+
+/* Layout helpers */
+.two-col { display: grid; grid-template-columns: 1fr 1fr; gap: 24px; }
+.anno { font-size: 11px; color: #999; text-align: center; margin-top: 8px; }
+
+/* Flows */
+.flow-card { background: #fff; border-radius: 12px; padding: 18px 22px; border: 1.5px solid #e8e8f0; margin-bottom: 14px; }
+.flow-hdr { font-size: 13px; font-weight: 700; color: #333; margin-bottom: 14px; display: flex; align-items: center; gap: 8px; }
+.badge { width: 22px; height: 22px; border-radius: 50%; display:inline-flex; align-items:center; justify-content:center; font-size:11px; font-weight:800; color:#fff; flex-shrink:0; }
+.b1{background:#6366f1}.b2{background:#0ea5e9}.b3{background:#10b981}.b4{background:#f59e0b}.b5{background:#ec4899}.b6{background:#8b5cf6}
+
+.steps { display: flex; align-items: center; flex-wrap: wrap; gap: 0; }
+.step { display: flex; flex-direction: column; align-items: center; text-align: center; min-width: 76px; }
+.sicon { width: 40px; height: 40px; border-radius: 9px; display: flex; align-items: center; justify-content: center; font-size: 17px; margin-bottom: 5px; }
+.slabel { font-size: 11px; color: #444; font-weight: 600; line-height: 1.3; }
+.ssub { font-size: 10px; color: #aaa; margin-top: 2px; line-height: 1.3; }
+.arr { color: #ddd; font-size: 18px; margin: 0 2px; padding-bottom: 14px; }
+.key .sicon { box-shadow: 0 0 0 2.5px #6366f1; }
+.branch { display: flex; flex-direction: column; gap: 6px; }
+.branch-item { display: flex; align-items: center; gap: 0; }
+.branch-label { font-size: 10px; color: #999; background: #f5f5f5; border-radius: 4px; padding: 2px 6px; margin-right: 4px; white-space: nowrap; }
+
+.si-purple{background:#ededff}.si-blue{background:#e0f2fe}.si-green{background:#d1fae5}
+.si-orange{background:#fef3c7}.si-gray{background:#f3f4f6}.si-teal{background:#ccfbf1}
+.si-red{background:#fee2e2}.si-pink{background:#fce7f3}.si-amber{background:#fffbeb}
+
+.note { margin-top: 12px; padding: 9px 13px; background: #f8f8ff; border-radius: 8px; border-left: 3px solid #6366f1; font-size: 11px; color: #666; line-height: 1.7; }
+.note strong { color: #6366f1; }
+.note.warn { border-left-color: #f59e0b; background: #fffbeb; }
+.note.warn strong { color: #d97706; }
+
+/* Data model */
+.model-box { background: #fff; border-radius: 12px; padding: 22px 28px; border: 1.5px solid #e8e8f0; display: flex; align-items: stretch; gap: 0; justify-content: center; flex-wrap: wrap; }
+.model-node { display: flex; flex-direction: column; align-items: center; text-align: center; padding: 0 18px; }
+.mn-icon { width: 50px; height: 50px; border-radius: 13px; display: flex; align-items: center; justify-content: center; font-size: 22px; margin-bottom: 7px; }
+.mn-title { font-size: 13px; font-weight: 700; color: #333; }
+.mn-sub { font-size: 11px; color: #999; margin-top: 2px; }
+.mn-tags { display: flex; flex-direction: column; gap: 3px; margin-top: 8px; }
+.mn-tag { font-size: 10px; background: #f0f0ff; color: #6366f1; padding: 2px 8px; border-radius: 4px; }
+.mn-tag.g { background: #f0fdf4; color: #059669; }
+.mn-tag.gray { background: #f4f4f4; color: #888; }
+.model-arrow { display: flex; flex-direction: column; align-items: center; justify-content: center; padding: 0 4px; padding-bottom: 20px; color: #ccc; }
+.model-arrow .rel { font-size: 10px; color: #bbb; margin-bottom: 2px; }
+.model-arrow .ar { font-size: 22px; }
+.model-divider { width: 1px; background: #eee; margin: 0 10px; }
+</style>
+</head>
+<body>
+
+<h1>AI 简历助手 — 完整产品设计</h1>
+<p class="subtitle">登录后完整使用地图 · 所有页面 · 所有流程</p>
+
+<!-- ══════════════════════════════════════ -->
+<!-- 1. DATA MODEL                          -->
+<!-- ══════════════════════════════════════ -->
+<div class="section">
+  <div class="section-title">数据模型</div>
+  <div class="model-box">
+    <div class="model-node">
+      <div class="mn-icon si-purple">👤</div>
+      <div class="mn-title">用户</div><div class="mn-sub">User</div>
+      <div class="mn-tags">
+        <div class="mn-tag">长期记忆（跨简历共享）</div>
+        <div class="mn-tag">Token 用量记录</div>
+        <div class="mn-tag gray">邮箱 / 密码</div>
+      </div>
+    </div>
+    <div class="model-arrow"><div class="rel">1 : N</div><div class="ar">→</div></div>
+    <div class="model-node">
+      <div class="mn-icon si-blue">📄</div>
+      <div class="mn-title">简历</div><div class="mn-sub">Resume</div>
+      <div class="mn-tags">
+        <div class="mn-tag">JSON 数据</div>
+        <div class="mn-tag">模板 ID</div>
+        <div class="mn-tag gray">标题 / 来源（新建/复制）</div>
+      </div>
+    </div>
+    <div class="model-arrow"><div class="rel">1 : 1</div><div class="ar">→</div></div>
+    <div class="model-node">
+      <div class="mn-icon si-green">💬</div>
+      <div class="mn-title">对话线程</div><div class="mn-sub">Session</div>
+      <div class="mn-tags">
+        <div class="mn-tag">消息列表</div>
+        <div class="mn-tag">对话摘要</div>
+        <div class="mn-tag gray">Token 明细</div>
+      </div>
+    </div>
+    <div class="model-divider"></div>
+    <div class="model-node" style="max-width:240px; align-items:flex-start; text-align:left;">
+      <div style="font-size:11px;color:#555;line-height:1.9;">
+        ✦ 简历数据属于 Resume，Session 只存对话<br>
+        ✦ 1:1 强约束，技术上可升级为 1:N<br>
+        ✦ 长期记忆属于 User，AI 跨简历记得你<br>
+        ✦ 复制简历 = 数据快照 + 全新对话线程
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- ══════════════════════════════════════ -->
+<!-- 2. DASHBOARD                           -->
+<!-- ══════════════════════════════════════ -->
+<div class="section">
+  <div class="section-title">页面一：Dashboard（简历列表）</div>
+  <div class="screen">
+    <div class="bar"><div class="dot dot-r"></div><div class="dot dot-y"></div><div class="dot dot-g"></div><div class="url">resumeai.app/dashboard</div></div>
+    <div class="nav">
+      <div class="logo">ResumeAI</div>
+      <div class="user-chip"><div class="avatar">李</div><span>laobai ▾</span><span style="font-size:10px;color:#ccc;">（点开：改密码 / 退出）</span></div>
+    </div>
+    <div class="dash-body">
+      <div class="dash-head">
+        <h2>我的简历</h2>
+        <button class="btn-primary">＋ 新建简历</button>
+      </div>
+      <div class="resume-grid">
+        <!-- card 1 -->
+        <div class="rcard">
+          <div class="rcard-hover">
+            <div class="icon-btn" title="改名">✏️</div>
+            <div class="icon-btn" title="复制">⎘</div>
+            <div class="icon-btn" title="删除" style="color:#ef4444;">🗑</div>
+          </div>
+          <div class="rcard-thumb"><div class="tl h"></div><div class="tl s"></div><div class="tl l"></div><div class="tl m"></div></div>
+          <div class="rcard-info">
+            <div class="rcard-name">后端工程师</div>
+            <div class="rcard-meta">2小时前编辑</div>
+            <div class="rcard-tags"><span class="rtag">简约</span><span class="rtag">技术岗</span></div>
+          </div>
+        </div>
+        <!-- card 2 -->
+        <div class="rcard">
+          <div class="rcard-hover">
+            <div class="icon-btn">✏️</div><div class="icon-btn">⎘</div><div class="icon-btn" style="color:#ef4444;">🗑</div>
+          </div>
+          <div class="rcard-thumb tpl-thumb modern"><div class="tl h"></div><div class="tl s"></div><div class="tl l"></div></div>
+          <div class="rcard-info">
+            <div class="rcard-name">字节专项版</div>
+            <div class="rcard-meta">昨天 · 复制自后端版</div>
+            <div class="rcard-tags"><span class="rtag">现代</span><span class="rtag">社招</span></div>
+          </div>
+        </div>
+        <!-- card 3 -->
+        <div class="rcard">
+          <div class="rcard-hover">
+            <div class="icon-btn">✏️</div><div class="icon-btn">⎘</div><div class="icon-btn" style="color:#ef4444;">🗑</div>
+          </div>
+          <div class="rcard-thumb tpl-thumb clean"><div class="tl h"></div><div class="tl s"></div><div class="tl l"></div></div>
+          <div class="rcard-info">
+            <div class="rcard-name">English CV</div>
+            <div class="rcard-meta">3天前编辑</div>
+            <div class="rcard-tags"><span class="rtag">英文</span><span class="rtag">外企</span></div>
+          </div>
+        </div>
+        <div class="rcard rcard-new"><span>＋</span><span>新建简历</span></div>
+      </div>
+      <div style="margin-top:12px;font-size:10px;color:#bbb;">提示：鼠标悬停在卡片上可改名、复制或删除</div>
+    </div>
+  </div>
+  <div class="anno">卡片 Hover 显示三个操作图标：改名 / 复制 / 删除</div>
+</div>
+
+<!-- ══════════════════════════════════════ -->
+<!-- 3. CREATE MODAL                        -->
+<!-- ══════════════════════════════════════ -->
+<div class="section">
+  <div class="section-title">页面二：新建简历弹窗</div>
+  <div class="screen">
+    <div class="bar"><div class="dot dot-r"></div><div class="dot dot-y"></div><div class="dot dot-g"></div><div class="url">resumeai.app/dashboard</div></div>
+    <div class="nav"><div class="logo">ResumeAI</div><div class="user-chip"><div class="avatar">李</div></div></div>
+    <div class="modal-wrap">
+      <div class="modal">
+        <div class="modal-header">
+          <h3>新建简历</h3>
+          <span class="modal-close">✕</span>
+        </div>
+        <!-- 简历名称 -->
+        <div style="padding:12px 18px 0;border-bottom:1px solid #f5f5f5;">
+          <div style="font-size:10px;font-weight:700;color:#bbb;text-transform:uppercase;letter-spacing:.5px;margin-bottom:6px;">简历名称</div>
+          <input style="width:100%;border:1.5px solid #e0e0e0;border-radius:7px;padding:7px 12px;font-size:13px;outline:none;color:#333;margin-bottom:12px;" placeholder="例：后端工程师 · 2026" value="后端工程师 · 2026" />
+        </div>
+        <div class="modal-body">
+          <!-- Left: template picker -->
+          <div class="modal-left">
+            <div class="modal-section-label">选择模板</div>
+            <div class="tag-filters">
+              <span class="filter-tag active">全部</span>
+              <span class="filter-tag">简约</span>
+              <span class="filter-tag">现代</span>
+              <span class="filter-tag">商务</span>
+              <span class="filter-tag">校招</span>
+              <span class="filter-tag">外企</span>
+              <span class="filter-tag">技术岗</span>
+              <span class="filter-tag">英文</span>
+            </div>
+            <div class="tpl-grid">
+              <div class="tpl-card selected">
+                <div class="tpl-thumb"><div class="tl h"></div><div class="tl s"></div><div class="tl l"></div><div class="tl m"></div></div>
+                <div class="tpl-name">经典</div>
+                <div class="tpl-tags-row"><span class="tpl-tag">简约</span><span class="tpl-tag">技术</span></div>
+              </div>
+              <div class="tpl-card">
+                <div class="tpl-thumb modern"><div class="tl h"></div><div class="tl s"></div><div class="tl l"></div></div>
+                <div class="tpl-name">现代双栏</div>
+                <div class="tpl-tags-row"><span class="tpl-tag">现代</span><span class="tpl-tag">社招</span></div>
+              </div>
+              <div class="tpl-card">
+                <div class="tpl-thumb clean"><div class="tl h"></div><div class="tl s"></div><div class="tl l"></div></div>
+                <div class="tpl-name">极简</div>
+                <div class="tpl-tags-row"><span class="tpl-tag">外企</span><span class="tpl-tag">英文</span></div>
+              </div>
+              <div class="tpl-card">
+                <div class="tpl-thumb" style="background:linear-gradient(135deg,#fff7ed,#ffedd5)"><div class="tl h" style="background:#f59e0b;opacity:.6"></div><div class="tl s"></div><div class="tl l"></div></div>
+                <div class="tpl-name">商务</div>
+                <div class="tpl-tags-row"><span class="tpl-tag" style="background:#fff7ed;color:#d97706">管理岗</span></div>
+              </div>
+              <div class="tpl-card">
+                <div class="tpl-thumb" style="background:linear-gradient(135deg,#f0fdf4,#dcfce7)"><div class="tl h" style="background:#10b981;opacity:.6"></div><div class="tl s"></div><div class="tl l"></div></div>
+                <div class="tpl-name">校招版</div>
+                <div class="tpl-tags-row"><span class="tpl-tag" style="background:#f0fdf4;color:#059669">校招</span></div>
+              </div>
+              <div class="tpl-card">
+                <div class="tpl-thumb" style="background:linear-gradient(135deg,#fdf4ff,#fae8ff)"><div class="tl h" style="background:#a855f7;opacity:.6"></div><div class="tl s"></div><div class="tl l"></div></div>
+                <div class="tpl-name">创意</div>
+                <div class="tpl-tags-row"><span class="tpl-tag" style="background:#faf5ff;color:#9333ea">设计岗</span></div>
+              </div>
+            </div>
+            <div style="font-size:10px;color:#bbb;margin-top:8px;">✓ 选中：经典 — 进入编辑器后仍可切换</div>
+          </div>
+          <!-- Right: start options -->
+          <div class="modal-right">
+            <div class="modal-section-label">怎么开始？</div>
+            <div class="start-options">
+              <div class="start-opt selected">
+                <div class="start-opt-icon">💬</div>
+                <div class="start-opt-title">从头开始</div>
+                <div class="start-opt-sub">和 AI 对话，一步步建立简历内容</div>
+              </div>
+              <div class="start-opt">
+                <div class="start-opt-icon">📤</div>
+                <div class="start-opt-title">上传已有简历</div>
+                <div class="start-opt-sub">PDF 或 Word，AI 解析后帮你优化</div>
+              </div>
+            </div>
+            <div style="margin-top:14px;font-size:10px;color:#bbb;line-height:1.6;">
+              💡 也可以进入编辑器后随时上传简历
+            </div>
+          </div>
+        </div>
+        <div class="modal-footer">
+          <button class="btn-cancel">取消</button>
+          <button class="btn-confirm">开始创建 →</button>
+        </div>
+      </div>
+    </div>
+  </div>
+  <div class="anno">左侧模板选择（带标签筛选） · 右侧选起点 · 模板进入编辑器后仍可换</div>
+</div>
+
+<!-- ══════════════════════════════════════ -->
+<!-- 4. EDITOR                              -->
+<!-- ══════════════════════════════════════ -->
+<div class="section">
+  <div class="section-title">页面三：编辑器（所有可操作项标注）</div>
+  <div class="screen annotated">
+    <div class="bar"><div class="dot dot-r"></div><div class="dot dot-y"></div><div class="dot dot-g"></div><div class="url">resumeai.app/resume/abc123</div></div>
+    <div class="editor">
+      <!-- Left -->
+      <div class="ed-left">
+        <div class="ed-logo">ResumeAI</div>
+        <div class="resume-list-label">我的简历</div>
+        <div class="ritem"><div class="ritem-dot"></div><div class="ritem-info"><div class="ritem-title">后端工程师</div><div class="ritem-time">2小时前</div></div></div>
+        <div class="ritem active"><div class="ritem-dot"></div><div class="ritem-info"><div class="ritem-title">字节专项版</div><div class="ritem-time">当前</div></div></div>
+        <div class="ritem"><div class="ritem-dot"></div><div class="ritem-info"><div class="ritem-title">English CV</div><div class="ritem-time">3天前</div></div></div>
+        <div class="ed-left-btns">
+          <div class="copy-btn">⎘ 复制当前简历</div>
+          <div class="new-resume-btn">＋ 新建简历</div>
+        </div>
+      </div>
+      <!-- Mid -->
+      <div class="ed-mid">
+        <div class="chat-top-bar">
+          <div class="jd-panel">
+            <span class="jd-label">粘贴职位描述</span>
+            <textarea class="jd-textarea" placeholder="把 JD 粘贴到这里，AI 自动针对性优化 →"></textarea>
+            <button class="jd-send">优化</button>
+          </div>
+          <div class="upload-bar">
+            <div class="upload-btn">📤 上传简历文件</div>
+            <span class="upload-hint">PDF / DOCX · AI 智能解析合并</span>
+          </div>
+        </div>
+        <div class="chat-header">
+          <input class="resume-title-edit" value="字节专项版" />
+          <span class="chat-tag">● 进行中</span>
+        </div>
+        <div class="chat-msgs">
+          <div class="msg me">帮我针对字节后端JD优化</div>
+          <div class="system-msg">⚙ 调用 match_jd 分析中…</div>
+          <div class="msg ai">分析完成。匹配度 79%，建议强化分布式系统经验和高并发量化描述，其余基本吻合。我来修改第二段工作经历…</div>
+          <div class="msg me">好，还有第三段也优化下</div>
+          <div class="msg ai">已更新两段经历，简历右侧已刷新。要不要我也调整一下技能部分的关键词顺序？</div>
+        </div>
+        <div class="chat-bar">
+          <input placeholder="继续和 AI 对话…" />
+          <button class="send">发送</button>
+        </div>
+      </div>
+      <!-- Right -->
+      <div class="ed-right">
+        <div class="prev-hdr"><span>简历预览</span><a>换模板</a></div>
+        <div class="prev-body">
+          <div class="a4">
+            <div class="a4-name">张 伟</div>
+            <div class="a4l d" style="width:62%"></div>
+            <div class="a4sec"><div class="a4sec-t">工作经历</div><div class="a4l" style="width:92%"></div><div class="a4l" style="width:76%"></div><div class="a4l d" style="width:88%"></div><div class="a4l" style="width:68%"></div></div>
+            <div class="a4sec"><div class="a4sec-t">技能</div><div class="a4l" style="width:72%"></div><div class="a4l" style="width:54%"></div></div>
+            <div class="a4sec"><div class="a4sec-t">教育</div><div class="a4l" style="width:82%"></div></div>
+          </div>
+        </div>
+        <div class="prev-foot">
+          <button class="btn-tpl">模板</button>
+          <button class="btn-exp">导出 PDF</button>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Annotation legend -->
+  <div style="background:#fff;border-radius:10px;border:1.5px solid #e8e8f0;padding:16px 20px;margin-top:12px;">
+    <div style="font-size:11px;font-weight:700;color:#333;margin-bottom:12px;">编辑器可操作项</div>
+    <div style="display:grid;grid-template-columns:repeat(3,1fr);gap:8px 24px;font-size:11px;color:#555;line-height:1.7;">
+      <div>📌 <strong>左侧列表</strong>：点击切换简历，整页刷新</div>
+      <div>⎘ <strong>复制当前简历</strong>：快照 + 新对话</div>
+      <div>📤 <strong>上传简历文件</strong>：触发 AI 解析合并</div>
+      <div>📋 <strong>粘贴JD框</strong>：触发 match_jd 优化</div>
+      <div>✏️ <strong>简历标题</strong>：点击直接改名</div>
+      <div>🎨 <strong>换模板</strong>：右侧预览即时切换</div>
+      <div>💬 <strong>Chat Panel</strong>：主要交互区，AI实时改简历</div>
+      <div>👁 <strong>右侧预览</strong>：A4实时更新</div>
+      <div>⬇️ <strong>导出PDF</strong>：一键下载</div>
+    </div>
+  </div>
+</div>
+
+<!-- ══════════════════════════════════════ -->
+<!-- 5. CONFLICT DIALOG                     -->
+<!-- ══════════════════════════════════════ -->
+<div class="section">
+  <div class="section-title">特殊场景：上传简历与现有内容冲突</div>
+  <div class="two-col">
+    <!-- Low conflict -->
+    <div>
+      <div class="screen">
+        <div class="bar"><div class="dot dot-r"></div><div class="dot dot-y"></div><div class="dot dot-g"></div><div class="url">冲突少 → 自动合并</div></div>
+        <div style="padding:14px;background:#fdfcff;display:flex;flex-direction:column;gap:8px;">
+          <div class="msg me" style="align-self:flex-end;">我上传了一份已有简历，请帮我解析并更新当前内容</div>
+          <div class="system-msg">⚙ 正在解析文件 · 分析冲突…</div>
+          <div class="msg ai" style="max-width:90%;">
+            解析完成，冲突很少，我已自动合并：<br><br>
+            ✅ 新增了「腾讯实习」经历（原简历没有）<br>
+            ✅ 更新了技能列表，补充了 Kubernetes<br>
+            ✅ 教育信息保持不变<br><br>
+            简历已刷新，有什么需要调整的吗？
+          </div>
+        </div>
+      </div>
+      <div class="anno">冲突少 → 直接合并，告诉用户改了什么</div>
+    </div>
+    <!-- High conflict -->
+    <div>
+      <div class="screen">
+        <div class="bar"><div class="dot dot-r"></div><div class="dot dot-y"></div><div class="dot dot-g"></div><div class="url">冲突多 → 让用户选</div></div>
+        <div style="padding:14px;background:#fdfcff;display:flex;flex-direction:column;gap:8px;">
+          <div class="msg me" style="align-self:flex-end;">我上传了一份已有简历，请帮我解析并更新当前内容</div>
+          <div class="system-msg">⚙ 正在解析文件 · 分析冲突…</div>
+          <div class="conflict-card">
+            <div class="cc-title">⚠️ 发现较多冲突，需要你来决定</div>
+            <div class="cc-item">• 姓名：当前「张伟」→ 上传「李明」</div>
+            <div class="cc-item">• 工作经历：完全不同（4段 vs 2段）</div>
+            <div class="cc-item">• 学历：当前本科 → 上传硕士</div>
+            <div style="margin-top:8px;font-size:10px;color:#b45309;">这像是两个不同人的简历，请选择处理方式：</div>
+            <div class="conflict-btns">
+              <button class="cc-btn cc-merge">智能合并</button>
+              <button class="cc-btn cc-replace" style="border:1.5px solid #fdba74;">用上传的替换</button>
+            </div>
+          </div>
+        </div>
+      </div>
+      <div class="anno">冲突多 → 展示具体差异 + 让用户选择</div>
+    </div>
+  </div>
+</div>
+
+<!-- ══════════════════════════════════════ -->
+<!-- 6. ALL FLOWS                           -->
+<!-- ══════════════════════════════════════ -->
+<div class="section">
+  <div class="section-title">完整用户流程</div>
+
+  <!-- Flow 1 -->
+  <div class="flow-card">
+    <div class="flow-hdr"><span class="badge b1">1</span> 新用户 · 从零开始建简历</div>
+    <div class="steps">
+      <div class="step"><div class="sicon si-purple">🔐</div><div class="slabel">注册登录</div></div><div class="arr">→</div>
+      <div class="step"><div class="sicon si-gray">📋</div><div class="slabel">Dashboard</div><div class="ssub">空状态</div></div><div class="arr">→</div>
+      <div class="step"><div class="sicon si-blue">➕</div><div class="slabel">新建简历</div></div><div class="arr">→</div>
+      <div class="step key"><div class="sicon si-purple">🎨</div><div class="slabel">选模板</div><div class="ssub">按标签筛选</div></div><div class="arr">→</div>
+      <div class="step"><div class="sicon si-green">💬</div><div class="slabel">进编辑器</div><div class="ssub">AI 打招呼</div></div><div class="arr">→</div>
+      <div class="step"><div class="sicon si-orange">🤖</div><div class="slabel">对话建简历</div></div><div class="arr">→</div>
+      <div class="step"><div class="sicon si-blue">⬇️</div><div class="slabel">导出 PDF</div></div>
+    </div>
+    <div class="note">AI 开场白：「你好！告诉我你想找什么方向的工作，以及你的教育和工作经历，我来帮你整理。」</div>
+  </div>
+
+  <!-- Flow 2 -->
+  <div class="flow-card">
+    <div class="flow-hdr"><span class="badge b2">2</span> 新用户 · 上传已有简历开始</div>
+    <div class="steps">
+      <div class="step"><div class="sicon si-blue">➕</div><div class="slabel">新建简历</div></div><div class="arr">→</div>
+      <div class="step key"><div class="sicon si-teal">📤</div><div class="slabel">选「上传<br>已有简历」</div></div><div class="arr">→</div>
+      <div class="step"><div class="sicon si-green">💬</div><div class="slabel">进编辑器</div><div class="ssub">文件选择</div></div><div class="arr">→</div>
+      <div class="step"><div class="sicon si-orange">⚙️</div><div class="slabel">AI 解析</div><div class="ssub">填充简历</div></div><div class="arr">→</div>
+      <div class="step"><div class="sicon si-green">💬</div><div class="slabel">AI 报告</div><div class="ssub">解析了什么</div></div><div class="arr">→</div>
+      <div class="step"><div class="sicon si-orange">🤖</div><div class="slabel">继续优化</div></div>
+    </div>
+    <div class="note">AI 开场白：「我已解析你的简历。[列出解析到的关键信息]。你觉得哪里还需要调整？」</div>
+  </div>
+
+  <!-- Flow 3 -->
+  <div class="flow-card">
+    <div class="flow-hdr"><span class="badge b3">3</span> 老用户 · 回来继续上次的对话</div>
+    <div class="steps">
+      <div class="step"><div class="sicon si-purple">🔐</div><div class="slabel">登录</div></div><div class="arr">→</div>
+      <div class="step"><div class="sicon si-blue">📋</div><div class="slabel">Dashboard</div><div class="ssub">看到卡片</div></div><div class="arr">→</div>
+      <div class="step key"><div class="sicon si-blue">👆</div><div class="slabel">点击简历</div></div><div class="arr">→</div>
+      <div class="step"><div class="sicon si-green">💬</div><div class="slabel">编辑器</div><div class="ssub">历史消息<br>全在</div></div><div class="arr">→</div>
+      <div class="step"><div class="sicon si-orange">✏️</div><div class="slabel">继续优化</div><div class="ssub">接上次状态</div></div>
+    </div>
+    <div class="note">一份简历一个对话线程，点进来就是上次的状态，没有额外操作。</div>
+  </div>
+
+  <!-- Flow 4 -->
+  <div class="flow-card">
+    <div class="flow-hdr"><span class="badge b4">4</span> 老用户 · 针对新 JD 优化（保留原版）</div>
+    <div class="steps">
+      <div class="step"><div class="sicon si-blue">👆</div><div class="slabel">进入简历</div></div><div class="arr">→</div>
+      <div class="step key"><div class="sicon si-teal">⎘</div><div class="slabel">复制简历</div><div class="ssub">左侧按钮</div></div><div class="arr">→</div>
+      <div class="step"><div class="sicon si-green">💬</div><div class="slabel">新编辑器</div><div class="ssub">简历有内容<br>对话是空的</div></div><div class="arr">→</div>
+      <div class="step key"><div class="sicon si-purple">📋</div><div class="slabel">粘贴 JD</div><div class="ssub">顶部输入框</div></div><div class="arr">→</div>
+      <div class="step"><div class="sicon si-orange">🤖</div><div class="slabel">AI 分析<br>并优化</div></div><div class="arr">→</div>
+      <div class="step"><div class="sicon si-blue">⬇️</div><div class="slabel">导出</div></div>
+    </div>
+    <div class="note">原版本完全不受影响。<strong>AI 长期记忆跨简历共享</strong>，不需要重新介绍背景。</div>
+  </div>
+
+  <!-- Flow 5 -->
+  <div class="flow-card">
+    <div class="flow-hdr"><span class="badge b5">5</span> 老用户 · 在编辑器里上传新简历文件（冲突处理）</div>
+    <div class="steps">
+      <div class="step"><div class="sicon si-green">💬</div><div class="slabel">编辑器内</div></div><div class="arr">→</div>
+      <div class="step key"><div class="sicon si-teal">📤</div><div class="slabel">上传简历</div><div class="ssub">顶部按钮</div></div><div class="arr">→</div>
+      <div class="step"><div class="sicon si-orange">⚙️</div><div class="slabel">AI 解析<br>冲突检测</div></div><div class="arr">→</div>
+      <div style="display:flex;flex-direction:column;gap:10px;">
+        <div class="branch-item">
+          <span class="branch-label">冲突少</span>
+          <div class="arr" style="padding-bottom:0">→</div>
+          <div class="step"><div class="sicon si-green">✅</div><div class="slabel">自动合并</div><div class="ssub">告知变更</div></div>
+        </div>
+        <div class="branch-item">
+          <span class="branch-label">冲突多</span>
+          <div class="arr" style="padding-bottom:0">→</div>
+          <div class="step"><div class="sicon si-red">⚠️</div><div class="slabel">用户选择</div><div class="ssub">合并 or 替换</div></div>
+        </div>
+      </div>
+    </div>
+    <div class="note warn"><strong>冲突判定由 Agent 决定</strong>：关键字段（姓名、性别、工作年限、主要经历）差异超过阈值则判为「冲突多」，反之自动合并。</div>
+  </div>
+
+  <!-- Flow 6 -->
+  <div class="flow-card">
+    <div class="flow-hdr"><span class="badge b6">6</span> 创建完全不同方向的第二份简历</div>
+    <div class="steps">
+      <div class="step"><div class="sicon si-blue">📋</div><div class="slabel">Dashboard</div></div><div class="arr">→</div>
+      <div class="step key"><div class="sicon si-purple">➕</div><div class="slabel">新建简历</div></div><div class="arr">→</div>
+      <div class="step"><div class="sicon si-purple">🎨</div><div class="slabel">选模板</div><div class="ssub">选不同的</div></div><div class="arr">→</div>
+      <div class="step"><div class="sicon si-green">💬</div><div class="slabel">空简历<br>空对话</div></div><div class="arr">→</div>
+      <div class="step"><div class="sicon si-orange">🤖</div><div class="slabel">AI 记得你</div><div class="ssub">长期记忆<br>跨简历</div></div>
+    </div>
+    <div class="note">「新建」= 空简历 + 新对话。「复制」= 数据快照 + 新对话。两者都开全新对话线程。</div>
+  </div>
+
+</div>
+
+<div style="height:48px;"></div>
+</body>
+</html>
